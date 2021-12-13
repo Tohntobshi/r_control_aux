@@ -1,0 +1,1 @@
+void communication_setup();

@@ -1,0 +1,15 @@
+{
+  "C_Cpp.intelliSenseEngine": "Tag Parser",
+  "files.associations": {
+    "rom_functions.h": "c",
+    "esp_system.h": "c",
+    "uart.h": "c",
+    "ledc.h": "c",
+    "motor_control.h": "c",
+    "stdio.h": "c",
+    "task.h": "c",
+    "string_view": "c",
+    "us_sensor.h": "c",
+    "functional": "c"
+  }
+}
