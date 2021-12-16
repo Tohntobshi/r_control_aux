@@ -77,6 +77,12 @@ uint16_t get_current_us_duration()
     return current_duration;    // 16bit value on 32bit system doesn't require mutex (i hope)
 }
 
+float get_current_us_distance()
+{
+    uint16_t dur = current_duration;
+    return (dur * 343.f) / 2000000.f;
+}
+
 void ultrasonic_setup()
 {
     xQueue = xQueueCreate( 1, sizeof( uint16_t ) );

@@ -11,8 +11,8 @@
 
 void motor_control_setup() {
     ledc_timer_config_t ledc_timer = {
-        .duty_resolution = LEDC_TIMER_13_BIT, // resolution of PWM duty
-        .freq_hz = 400,        // frequency of PWM signal
+        .duty_resolution = LEDC_TIMER_11_BIT, // resolution of PWM duty
+        .freq_hz = 490,        // frequency of PWM signal
         .speed_mode = LEDC_HIGH_SPEED_MODE,           // timer mode
         .timer_num = LEDC_TIMER_0,            // timer index
         .clk_cfg = LEDC_AUTO_CLK,              // Auto select the source clock
@@ -58,10 +58,10 @@ void motor_control_setup() {
 
 void set_motor_vals(uint16_t fl_val, uint16_t fr_val, uint16_t bl_val, uint16_t br_val)
 {
-    uint32_t flduty = (fl_val / 2500.f) * 0b1111111111111;
-    uint32_t frduty = (fr_val / 2500.f) * 0b1111111111111;
-    uint32_t blduty = (bl_val / 2500.f) * 0b1111111111111;
-    uint32_t brduty = (br_val / 2500.f) * 0b1111111111111;
+    uint32_t flduty = (fl_val / 2040.f) * 0b11111111111;
+    uint32_t frduty = (fr_val / 2040.f) * 0b11111111111;
+    uint32_t blduty = (bl_val / 2040.f) * 0b11111111111;
+    uint32_t brduty = (br_val / 2040.f) * 0b11111111111;
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, flduty);
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, frduty);

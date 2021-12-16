@@ -10,6 +10,16 @@
     "task.h": "c",
     "string_view": "c",
     "us_sensor.h": "c",
-    "functional": "c"
-  }
+    "functional": "c",
+    "i2c.h": "c",
+    "i2c_sensors.h": "c",
+    "cglm.h": "c",
+    "vec3.h": "c",
+    "chrono": "c",
+    "bmp280.h": "c",
+    "bmp280_defs.h": "c",
+    "testsss.h": "c",
+    "freertos.h": "c"
+  },
+  "cmake.configureOnOpen": false
 }
