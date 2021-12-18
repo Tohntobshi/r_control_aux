@@ -74,7 +74,9 @@ void set_motor_vals(uint16_t fl_val, uint16_t fr_val, uint16_t bl_val, uint16_t 
 
 void calibrate_esc()
 {
+    set_motor_vals(0, 0, 0, 0);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
     set_motor_vals(2000, 2000, 2000, 2000);
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(4000 / portTICK_PERIOD_MS);
     set_motor_vals(1000, 1000, 1000, 1000);
 }

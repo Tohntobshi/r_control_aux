@@ -21,7 +21,11 @@
                     "${workspaceFolder}"
                 ],
                 "limitSymbolsToIncludedHeaders": false
-            }
+            },
+            "defines": [
+                "CONFIG_FREERTOS_HZ=1000",
+                "configTICK_RATE_HZ=1000"
+            ]
         }
     ],
     "version": 4

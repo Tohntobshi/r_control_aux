@@ -1,5 +1,4 @@
 {
-  "C_Cpp.intelliSenseEngine": "Tag Parser",
   "files.associations": {
     "rom_functions.h": "c",
     "esp_system.h": "c",
@@ -19,7 +18,15 @@
     "bmp280.h": "c",
     "bmp280_defs.h": "c",
     "testsss.h": "c",
-    "freertos.h": "c"
+    "freertos.h": "c",
+    "timer.h": "c",
+    "control_loop.h": "c",
+    "cmath": "c",
+    "complex": "c",
+    "random": "c",
+    "limits": "c",
+    "sys.h": "c",
+    "def.h": "c"
   },
   "cmake.configureOnOpen": false
 }

@@ -2,6 +2,7 @@
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #include "i2c_sensors.h"
 #include "bmp280.h"
@@ -34,7 +35,8 @@ static vec3 mag_range;
 static vec3 mag_mid_vals;
 static vec3 gyro_calibration;
 
-
+static SemaphoreHandle_t gyroCalibMtx = NULL;
+static SemaphoreHandle_t magCalibMtx = NULL;
 
 static int8_t write_bytes(uint8_t address, uint8_t reg, uint8_t * data, uint16_t size)
 {
@@ -128,7 +130,9 @@ float get_bar_data()
 void get_gyro_calibrated_data(vec3 dest)
 {
     get_gyro_data(dest);
+    xSemaphoreTake(gyroCalibMtx, portMAX_DELAY);
     glm_vec3_sub(dest, gyro_calibration, dest);
+    xSemaphoreGive(gyroCalibMtx);
 }
 
 void calibrate_gyro()
@@ -139,17 +143,23 @@ void calibrate_gyro()
         get_gyro_data(gyro);
         glm_vec3_add(gyro, values, values);
 	}
+    xSemaphoreTake(gyroCalibMtx, portMAX_DELAY);
     glm_vec3_divs(values, 10000.f, gyro_calibration);
+    xSemaphoreGive(gyroCalibMtx);
 }
 
 void set_gyro_calibration(vec3 value)
 {
+    xSemaphoreTake(gyroCalibMtx, portMAX_DELAY);
     glm_vec3_copy(value, gyro_calibration);
+    xSemaphoreGive(gyroCalibMtx);
 }
 
 void get_gyro_calibration(vec3 dest)
 {
+    xSemaphoreTake(gyroCalibMtx, portMAX_DELAY);
     glm_vec3_copy(gyro_calibration, dest);
+    xSemaphoreGive(gyroCalibMtx);
 }
 
 void calibrate_mag()
@@ -175,31 +185,39 @@ void calibrate_mag()
 			mag_max_vals[2] = res[2];
 		vTaskDelay(1 / portTICK_PERIOD_MS);
 	}
+    xSemaphoreTake(magCalibMtx, portMAX_DELAY);
     glm_vec3_sub(mag_max_vals, mag_min_vals, mag_range);
     glm_vec3_divs(mag_range, 2.f, mag_range);
     glm_vec3_add(mag_min_vals, mag_range, mag_mid_vals);
+    xSemaphoreGive(magCalibMtx);
 }
 
 
 
 void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest)
 {
+    xSemaphoreTake(magCalibMtx, portMAX_DELAY);
     glm_vec3_copy(mag_mid_vals, mid_vals_dest);
     glm_vec3_copy(mag_range, range_dest);
+    xSemaphoreGive(magCalibMtx);
 }
 
 void set_mag_calibration(vec3 mid_vals, vec3 range)
 {
+    xSemaphoreTake(magCalibMtx, portMAX_DELAY);
     glm_vec3_copy(mid_vals, mag_mid_vals);
     glm_vec3_copy(range, mag_range);
+    xSemaphoreGive(magCalibMtx);
 }
 
 void get_mag_normalized_data(vec3 dest)
 {
     get_mag_data(dest);
+    xSemaphoreTake(magCalibMtx, portMAX_DELAY);
     dest[0] = (dest[0] - mag_mid_vals[0]) / mag_range[0];
     dest[1] = (dest[1] - mag_mid_vals[1]) / mag_range[1];
     dest[2] = (dest[2] - mag_mid_vals[2]) / mag_range[2];
+    xSemaphoreGive(magCalibMtx);
     glm_vec3_normalize(dest);
 }
 
@@ -262,4 +280,7 @@ void i2c_sensors_setup()
 	bmpConf.odr = BMP280_ODR_62_5_MS;
 	bmp280_set_config(&bmpConf, &bmp);
 	bmp280_set_power_mode(BMP280_NORMAL_MODE, &bmp);
+
+    gyroCalibMtx = xSemaphoreCreateMutex();
+    magCalibMtx = xSemaphoreCreateMutex();
 }
