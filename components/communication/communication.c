@@ -32,7 +32,7 @@ void set_short_to_net(uint16_t val, uint8_t * dest) {
     *(uint16_t *)dest = htons(val);
 }
 
-static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 32 bytes max
+static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 31 bytes max
 {
     if (reg == GET_PITCH_AND_ROLL_INFO)
     {
@@ -88,7 +88,6 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_float_to_net(vals[0], buf_to_write_val);
         set_float_to_net(vals[1], buf_to_write_val + 4);
         set_float_to_net(vals[2], buf_to_write_val + 8);
-        // printf("get gyro calib %f %f %f\n", vals[0], vals[1], vals[2]);
         return 12;
     }
     if (reg == GET_MAG_CALIBRATION)
@@ -102,13 +101,12 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_float_to_net(range[0], buf_to_write_val + 12);
         set_float_to_net(range[1], buf_to_write_val + 16);
         set_float_to_net(range[2], buf_to_write_val + 20);
-        // printf("get mag calib mid %f %f %f range %f %f %f\n", mid[0], mid[1], mid[2], range[0], range[1], range[2]);
         return 24;
     }
     return 0;
 }
 
-static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t size) // 32 bytes max
+static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t size) // 31 bytes max
 {
     if (reg == SET_PITCH_AND_ROLL && size == 8)
     {
@@ -368,7 +366,13 @@ static void communication_task(void * params)
         }
         if (command_type == 2)
         {
-            t.length = 8 * execute_read_command(reg, sendbuf);
+            uint8_t length = execute_read_command(reg, sendbuf);
+            sendbuf[length] = reg; // crc
+            for(int i = 0; i < length; i++)
+            {
+                sendbuf[length] = sendbuf[length] ^ sendbuf[i];
+            }
+            t.length = 8 * (length + 1);
         }
 
         ret = spi_slave_transmit(SPI2_HOST, &t, portMAX_DELAY);
@@ -389,9 +393,18 @@ static void communication_task(void * params)
             reg = recvbuf[0];
             continue;
         }
-        else if (t.trans_len >= 8 && command_type == 1) 
+        else if (t.trans_len >= 16 && command_type == 1) 
         {
-            execute_write_command(reg, recvbuf, t.trans_len / 8);
+            uint8_t length = t.trans_len / 8 - 1;
+            uint8_t crc = reg;
+            for(int j = 0; j < length; j++)
+            {
+                crc = crc ^ recvbuf[j];
+            }
+            if (crc == recvbuf[length])
+            {
+                execute_write_command(reg, recvbuf, length);
+            }
             command_type = 0;
         }
         else
