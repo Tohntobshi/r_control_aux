@@ -2,7 +2,7 @@
 
 void control_loop_setup();
 
-void set_desired_pitch_and_roll(float pitch, float roll);
+void set_move_vector(float x, float y);
 void set_desired_direction(float val);
 void set_desired_height(float val);
 void set_base_acceleration(float val);

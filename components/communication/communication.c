@@ -108,12 +108,12 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
 
 static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t size) // 31 bytes max
 {
-    if (reg == SET_PITCH_AND_ROLL && size == 8)
+    if (reg == MOVE && size == 8)
     {
-        float pitch = get_float_from_net(buf_with_val);
-        float roll = get_float_from_net(buf_with_val + 4);
-        // printf("set p %f r %f\n", pitch, roll);
-        set_desired_pitch_and_roll(pitch, roll);
+        float x = get_float_from_net(buf_with_val);
+        float y = get_float_from_net(buf_with_val + 4);
+        // printf("set move x %f y %f\n", x, y);
+        set_move_vector(x, y);
         return;
     }
     if (reg == SET_DIRECTION && size == 4)

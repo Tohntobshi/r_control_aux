@@ -16,8 +16,8 @@ static TaskHandle_t controlLoopTaskHandle;
 // -------- in values --------
 
 // desired values
-static float desiredPitchIn = 0.f;
-static float desiredRollIn = 0.f;
+static float desiredMoveXIn = 0.f;
+static float desiredMoveYIn = 0.f;
 static float desiredDirectionIn = 0.f;
 static float desiredHeightIn = 0.f;
 
@@ -86,10 +86,10 @@ static float rollErrIntOut = 0.f;
 static float yawErrIntOut = 0.f;
 static float heightErrIntOut = 0.f;
 
-void set_desired_pitch_and_roll(float pitch, float roll)
+void set_move_vector(float x, float y)
 {
-    desiredPitchIn = pitch;
-    desiredRollIn = roll;
+    desiredMoveXIn = x;
+    desiredMoveYIn = y;
 }
 
 void set_desired_direction(float val)
@@ -383,8 +383,7 @@ static void control_loop_task(void * params)
         }
 
         // copy all user input values
-        float desiredPitch = desiredPitchIn;
-		float desiredRoll = desiredRollIn;
+        vec2 desiredMove = { desiredMoveXIn, desiredMoveYIn };
 		float pitchAdjust = pitchAdjustIn;
 		float rollAdjust = rollAdjustIn;
 		float desiredDirection = -desiredDirectionIn;
@@ -458,6 +457,15 @@ static void control_loop_task(void * params)
         prevPitch = currentPitch;
 		prevRoll = currentRoll;
         prevYaw = currentYaw;
+
+        // rotate clockwise - currentYaw goes down
+        // incline forward - currentPitch goes down
+        // incline right - currentRoll goes down
+        vec2 localMove;
+        glm_vec2_rotate(desiredMove, -glm_rad(currentYaw), localMove);
+
+        float desiredPitch = -localMove[1] * 15.f;
+        float desiredRoll = -localMove[0] * 15.f;
 
         float currentPitchError = desiredPitch - currentPitch + pitchAdjust;
 		float currentRollError = desiredRoll - currentRoll + rollAdjust;

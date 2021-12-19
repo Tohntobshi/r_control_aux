@@ -4,7 +4,7 @@ enum flight_controller_registers
 {
     UNSET,
 
-	SET_PITCH_AND_ROLL,
+	MOVE,
 	SET_DIRECTION,
     SET_HEIGHT,
     SET_BASE_ACCELERATION,
