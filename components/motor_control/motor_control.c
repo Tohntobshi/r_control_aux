@@ -12,7 +12,7 @@
 void motor_control_setup() {
     ledc_timer_config_t ledc_timer = {
         .duty_resolution = LEDC_TIMER_11_BIT, // resolution of PWM duty
-        .freq_hz = 490,        // frequency of PWM signal
+        .freq_hz = 3333,        // frequency of PWM signal
         .speed_mode = LEDC_HIGH_SPEED_MODE,           // timer mode
         .timer_num = LEDC_TIMER_0,            // timer index
         .clk_cfg = LEDC_AUTO_CLK,              // Auto select the source clock
@@ -56,12 +56,24 @@ void motor_control_setup() {
     ledc_channel_config(&ledc_channel3);
 }
 
-void set_motor_vals(uint16_t fl_val, uint16_t fr_val, uint16_t bl_val, uint16_t br_val)
+static void disable_motor_control()
 {
-    uint32_t flduty = (fl_val / 2040.f) * 0b11111111111;
-    uint32_t frduty = (fr_val / 2040.f) * 0b11111111111;
-    uint32_t blduty = (bl_val / 2040.f) * 0b11111111111;
-    uint32_t brduty = (br_val / 2040.f) * 0b11111111111;
+    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0);
+    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2, 0);
+    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3, 0);
+}
+
+void set_motor_vals(float fl_val, float fr_val, float bl_val, float br_val)
+{
+    float fl_duty_fraction = (fl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float fr_duty_fraction = (fr_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float bl_duty_fraction = (bl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float br_duty_fraction = (br_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    uint32_t flduty = fl_duty_fraction * 0b11111111111;
+    uint32_t frduty = fr_duty_fraction * 0b11111111111;
+    uint32_t blduty = bl_duty_fraction * 0b11111111111;
+    uint32_t brduty = br_duty_fraction * 0b11111111111;
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, flduty);
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, frduty);
@@ -74,9 +86,10 @@ void set_motor_vals(uint16_t fl_val, uint16_t fr_val, uint16_t bl_val, uint16_t 
 
 void calibrate_esc()
 {
-    set_motor_vals(0, 0, 0, 0);
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-    set_motor_vals(2000, 2000, 2000, 2000);
+    disable_motor_control();
+    vTaskDelay(6000 / portTICK_PERIOD_MS);
+    motor_control_setup();
+    set_motor_vals(1.0f, 1.0f, 1.0f, 1.0f);
     vTaskDelay(4000 / portTICK_PERIOD_MS);
-    set_motor_vals(1000, 1000, 1000, 1000);
+    set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
 }

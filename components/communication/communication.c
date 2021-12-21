@@ -13,6 +13,8 @@
 #define GPIO_CS 15
 #define SPI_READY_PIN 27
 
+
+
 static TaskHandle_t communicationTaskHandle;
 
 float get_float_from_net(uint8_t * data) {
@@ -112,177 +114,229 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
     {
         float x = get_float_from_net(buf_with_val);
         float y = get_float_from_net(buf_with_val + 4);
-        // printf("set move x %f y %f\n", x, y);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set move x %f y %f\n", x, y);
+        #endif
         set_move_vector(x, y);
         return;
     }
     if (reg == SET_DIRECTION && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set direction %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set direction %f\n", res);
+        #endif
         set_desired_direction(res);
         return;
     }
     if (reg == SET_HEIGHT && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set height %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height %f\n", res);
+        #endif
         set_desired_height(res);
         return;
     }
     if (reg == SET_BASE_ACCELERATION && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set base accel %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set base accel %f\n", res);
+        #endif
         set_base_acceleration(res);
         return;
     }
     if (reg == SET_PITCH_PROP_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set pitch prop coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set pitch prop coef %f\n", res);
+        #endif
         set_pitch_prop_coef(res);
         return;
     }
     if (reg == SET_PITCH_DER_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set pitch der coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set pitch der coef %f\n", res);
+        #endif
         set_pitch_der_coef(res);
         return;
     }
     if (reg == SET_PITCH_INT_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set pitch int coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set pitch int coef %f\n", res);
+        #endif
         set_pitch_int_coef(res);
         return;
     }
     if (reg == SET_ROLL_PROP_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set roll prop coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set roll prop coef %f\n", res);
+        #endif
         set_roll_prop_coef(res);
         return;
     }
     if (reg == SET_ROLL_DER_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set roll der coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set roll der coef %f\n", res);
+        #endif
         set_roll_der_coef(res);
         return;
     }
     if (reg == SET_ROLL_INT_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set roll int coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set roll int coef %f\n", res);
+        #endif
         set_roll_int_coef(res);
         return;
     }
     if (reg == SET_YAW_PROP_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set yaw prop coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set yaw prop coef %f\n", res);
+        #endif
         set_yaw_prop_coef(res);
         return;
     }
     if (reg == SET_YAW_DER_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set yaw der coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set yaw der coef %f\n", res);
+        #endif
         set_yaw_der_coef(res);
         return;
     }
     if (reg == SET_YAW_INT_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set yaw int coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set yaw int coef %f\n", res);
+        #endif
         set_yaw_int_coef(res);
         return;
     }
     if (reg == SET_HEIGHT_PROP_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set height prop coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height prop coef %f\n", res);
+        #endif
         set_height_prop_coef(res);
         return;
     }
     if (reg == SET_HEIGHT_DER_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set height der coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height der coef %f\n", res);
+        #endif
         set_height_der_coef(res);
         return;
     }
     if (reg == SET_HEIGHT_INT_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set height int coef %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height int coef %f\n", res);
+        #endif
         set_height_int_coef(res);
         return;
     }
     if (reg == SET_ACC_TRUST && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set acc trust %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set acc trust %f\n", res);
+        #endif
         set_acc_trust(res);
         return;
     }
     if (reg == SET_MAG_TRUST && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set mag trust %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set mag trust %f\n", res);
+        #endif
         set_mag_trust(res);
         return;
     }
     if (reg == SET_IMU_LPF_MODE && size == 1)
     {
-        // printf("set lpf mode %d\n", buf_with_val[0]);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set lpf mode %d\n", buf_with_val[0]);
+        #endif
         schedule_set_acc_gyro_filtering_mode(buf_with_val[0]);
         return;
     }
     if (reg == RESET_TURN_OFF_TRIGGER && size == 1)
     {
-        // printf("reset turn off\n");
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("reset turn off\n");
+        #endif
         reset_turn_off_trigger();
         return;
     }
     if (reg == SET_TURN_OFF_INCLINE_ANGLE && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set turn off angle%f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set turn off angle %f\n", res);
+        #endif
         set_turn_off_incline_angle(res);
         return;
     }
     if (reg == SET_PITCH_ADJUST && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set pitch adj %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set pitch adj %f\n", res);
+        #endif
         set_pitch_adjust(res);
         return;
     }
     if (reg == SET_ROLL_ADJUST && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
-        // printf("set roll adj %f\n", res);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set roll adj %f\n", res);
+        #endif
         set_roll_adjust(res);
         return;
     }
     if (reg == CALIBRATE_GYRO && size == 1)
     {
-        // printf("calibrate gyro\n");
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("calibrate gyro\n");
+        #endif
         schedule_gyro_calibration();
         return;
     }
     if (reg == CALIBRATE_MAG && size == 1)
     {
-        // printf("calibrate mag\n");
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("calibrate mag\n");
+        #endif
         schedule_mag_calibration();
         return;
     }
     if (reg == CALIBRATE_ESC && size == 1)
     {
-        // printf("calibrate esc\n");
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("calibrate esc\n");
+        #endif
         schedule_esc_calibration();
         return;
     }
@@ -292,7 +346,9 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         result[0] = get_float_from_net(buf_with_val);
         result[1] = get_float_from_net(buf_with_val + 4);
         result[2] = get_float_from_net(buf_with_val + 8);
-        // printf("set gyro calib %f %f %f\n", result[0], result[1], result[2]);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set gyro calib %f %f %f\n", result[0], result[1], result[2]);
+        #endif
         set_gyro_calibration(result);
         return;
     }
@@ -306,10 +362,15 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         range[0] = get_float_from_net(buf_with_val + 12);
         range[1] = get_float_from_net(buf_with_val + 16);
         range[2] = get_float_from_net(buf_with_val + 20);
-        // printf("set mag calib mid %f %f %f range %f %f %f\n", mid[0], mid[1], mid[2], range[0], range[1], range[2]);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set mag calib mid %f %f %f range %f %f %f\n", mid[0], mid[1], mid[2], range[0], range[1], range[2]);
+        #endif
         set_mag_calibration(mid, range);
         return;
     }
+    #ifdef PRINT_ALL_SET_COMMANDS
+    printf("unknown set command\n");
+    #endif
 }
 
 static void IRAM_ATTR my_post_setup_cb(spi_slave_transaction_t *trans) {
@@ -349,11 +410,12 @@ static void communication_task(void * params)
     esp_err_t ret = spi_slave_initialize(SPI2_HOST, &buscfg, &slvcfg, SPI_DMA_DISABLED);
 
     spi_slave_transaction_t t;
-    uint8_t sendbuf[32];
-    uint8_t recvbuf[32];
+    WORD_ALIGNED_ATTR uint8_t sendbuf[32];
+    WORD_ALIGNED_ATTR uint8_t recvbuf[32];
 
-    uint8_t command_type = 0; // 0 - wait for command, 1 - write, 2 - read
+    uint8_t command_type = 0; // 0 - wait for command, 1 - write, 2 - send write ack, 3 - read
     uint8_t reg = 0;
+    uint8_t ack_byte = 0;
 
     while(1)
     {
@@ -365,6 +427,11 @@ static void communication_task(void * params)
             t.length = 8;
         }
         if (command_type == 2)
+        {
+            t.length = 8;
+            sendbuf[0] = ack_byte;
+        }
+        if (command_type == 3)
         {
             uint8_t length = execute_read_command(reg, sendbuf);
             sendbuf[length] = reg; // crc
@@ -385,7 +452,7 @@ static void communication_task(void * params)
                 continue;
             }
             if (recvbuf[0] & 0b10000000) {
-                command_type = 2;
+                command_type = 3;
                 reg = recvbuf[0] & 0b01111111;
                 continue;
             }
@@ -393,7 +460,7 @@ static void communication_task(void * params)
             reg = recvbuf[0];
             continue;
         }
-        else if (t.trans_len >= 16 && command_type == 1) 
+        else if (t.trans_len >= 8 && command_type == 1) 
         {
             uint8_t length = t.trans_len / 8 - 1;
             uint8_t crc = reg;
@@ -404,12 +471,26 @@ static void communication_task(void * params)
             if (crc == recvbuf[length])
             {
                 execute_write_command(reg, recvbuf, length);
+                ack_byte = ~crc;
             }
-            command_type = 0;
+            else {
+                #ifdef PRINT_ALL_SET_COMMANDS
+                printf("crc fail\n");
+                #endif
+                ack_byte = 0;
+            }
+            command_type = 2;
         }
         else
         {
+            if (t.trans_len < 8 && command_type == 1)
+            {
+                #ifdef PRINT_ALL_SET_COMMANDS
+                printf("receive trans length < 8 bit\n");
+                #endif
+            }
             command_type = 0;
+            ack_byte = 0;
         }
     }
 }

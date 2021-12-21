@@ -362,6 +362,19 @@ static int clamp_integer(int val, int min, int max)
 
 static void control_loop_task(void * params)
 {
+    motor_control_setup();
+    i2c_sensors_setup();
+    ultrasonic_setup();
+    timer_config_t t_conf = {
+        .divider = 80,
+        .counter_dir = TIMER_COUNT_UP,
+        .counter_en = TIMER_START,
+        .alarm_en = TIMER_ALARM_EN,
+        .auto_reload = TIMER_AUTORELOAD_EN,
+    };
+    timer_init(TIMER_GROUP_0, TIMER_1, &t_conf);
+
+
     float prevPitch = 0.f;
 	float prevRoll = 0.f;
 	float prevYaw = 0.f;
@@ -412,7 +425,7 @@ static void control_loop_task(void * params)
         get_gyro_calibrated_data(gyro_data);
         vec3 mag_data;
         get_mag_normalized_data(mag_data);
-        float bar_data = get_bar_data();
+        // float bar_data = get_bar_data();
         float usonic_distance = get_current_us_distance();
         uint64_t u_seconds_elapsed;
         timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &u_seconds_elapsed);
@@ -476,9 +489,9 @@ static void control_loop_task(void * params)
 		float rollErrorChangeRate = gyro_data[0];
 		float yawErrorChangeRate = -gyro_data[2];
 		
-		pitchErrInt += currentPitchError * seconds_elapsed;
-		rollErrInt += currentRollError * seconds_elapsed;
-		yawErrInt += currentYawError * seconds_elapsed;
+		pitchErrInt += currentPitchError * seconds_elapsed * pitchIntCoef;
+		rollErrInt += currentRollError * seconds_elapsed * rollIntCoef;
+		yawErrInt += currentYawError * seconds_elapsed * yawIntCoef;
 
         float currentHeight = 0.f;
 		float currentHeightError = 0.f;
@@ -489,11 +502,11 @@ static void control_loop_task(void * params)
 		}
 		else
 		{
-			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * 0.2f + prevHeight * 0.8f;
+			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * 0.05f + prevHeight * 0.95f;
 			currentHeightError = desiredHeight - currentHeight;
-			heightErrInt += currentHeightError * seconds_elapsed;
+			heightErrInt += currentHeightError * seconds_elapsed * heightIntCoef;
 		}
-		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * 0.2f + prevHeightDer * 0.8f;
+		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * 0.05f + prevHeightDer * 0.95f;
         float heightErrorChangeRate = -heightDer;
 		prevHeight = currentHeight;
 		prevHeightDer = heightDer;
@@ -506,25 +519,22 @@ static void control_loop_task(void * params)
 			turnOffTrigger = 1;
 		}
 
-        int pitchMotorAdjust = currentPitchError * pitchPropCoef + pitchErrorChangeRate * pitchDerCoef + pitchErrInt * pitchIntCoef;
-		int rollMotorAdjust = currentRollError * rollPropCoef + rollErrorChangeRate * rollDerCoef + rollErrInt * rollIntCoef;
-		int yawMotorAdjust = currentYawError * yawPropCoef + yawErrorChangeRate * yawDerCoef + yawErrInt * yawIntCoef;
-		int heightMotorAdjust = (currentHeightError * heightPropCoef + heightErrorChangeRate * heightDerCoef + heightErrInt * heightIntCoef) * 1000;
-        
+        float pitchMotorAdjust = (currentPitchError * pitchPropCoef + pitchErrorChangeRate * pitchDerCoef + pitchErrInt) / 1000.f;
+		float rollMotorAdjust = (currentRollError * rollPropCoef + rollErrorChangeRate * rollDerCoef + rollErrInt) / 1000.f;
+		float yawMotorAdjust = (currentYawError * yawPropCoef + yawErrorChangeRate * yawDerCoef + yawErrInt) / 1000.f;
+		float heightMotorAdjust = currentHeightError * heightPropCoef + heightErrorChangeRate * heightDerCoef + heightErrInt;
 
-		int baseMotorVal = MIN_VAL + (MAX_VAL - MIN_VAL) * baseAcceleration;
-
-		int frontLeft = clamp_integer(baseMotorVal + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust, MIN_VAL, MAX_VAL);
-		int frontRight = clamp_integer(baseMotorVal + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust, MIN_VAL, MAX_VAL);
-		int backLeft = clamp_integer(baseMotorVal + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust, MIN_VAL, MAX_VAL);
-		int backRight = clamp_integer(baseMotorVal + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust, MIN_VAL, MAX_VAL);
+        float frontLeft = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust);
+		float frontRight = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust);
+		float backLeft = glm_clamp_zo(baseAcceleration + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust);
+		float backRight = glm_clamp_zo(baseAcceleration + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust);
 
 		if (desiredHeight < 0.05f || turnOffTrigger)
 		{
-			frontLeft = MIN_VAL;
-			frontRight = MIN_VAL;
-			backLeft = MIN_VAL;
-			backRight = MIN_VAL;
+			frontLeft = 0.f;
+			frontRight = 0.f;
+			backLeft = 0.f;
+			backRight = 0.f;
 			pitchErrInt = 0.f;
 			rollErrInt = 0.f;
 			heightErrInt = 0.f;
@@ -550,10 +560,10 @@ static void control_loop_task(void * params)
         currentYawErrorOut = currentYawError;
         yawErrorChangeRateOut = yawErrorChangeRate;
 
-        frontLeftOut = frontLeft;
-        frontRightOut = frontRight;
-        backLeftOut = backLeft;
-        backRightOut = backRight;
+        frontLeftOut = frontLeft * 1000;
+        frontRightOut = frontRight * 1000;
+        backLeftOut = backLeft * 1000;
+        backRightOut = backRight * 1000;
 
         loopFrequencyOut = currentLoopFreq;
 
@@ -566,16 +576,5 @@ static void control_loop_task(void * params)
 
 void control_loop_setup()
 {
-    motor_control_setup();
-    i2c_sensors_setup();
-    ultrasonic_setup();
-    timer_config_t t_conf = {
-        .divider = 80,
-        .counter_dir = TIMER_COUNT_UP,
-        .counter_en = TIMER_START,
-        .alarm_en = TIMER_ALARM_EN,
-        .auto_reload = TIMER_AUTORELOAD_EN,
-    };
-    timer_init(TIMER_GROUP_0, TIMER_1, &t_conf);
     xTaskCreate(control_loop_task, "control_loop_task", 50000, NULL, 1, &controlLoopTaskHandle);
 }
