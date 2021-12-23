@@ -20,6 +20,8 @@ static float desiredMoveXIn = 0.f;
 static float desiredMoveYIn = 0.f;
 static float desiredDirectionIn = 0.f;
 static float desiredHeightIn = 0.f;
+static uint8_t useRelativeAccelerationIn = 0;
+static float desiredRelativeAccelerationIn = 0.f;
 
 // PID coefficients for pitch
 static float pitchPropCoefIn = 0.f;
@@ -45,6 +47,7 @@ static float heightIntCoefIn = 0.f;
 static float accTrustIn = 0.1f;
 static float magTrustIn = 0.1f;
 static uint8_t imuLPFModeIn = 3;
+static float accFilteringIn = 0.95f;
 
 // safety
 static uint8_t turnOffTrigger = 0;
@@ -85,6 +88,14 @@ static float pitchErrIntOut = 0.f;
 static float rollErrIntOut = 0.f;
 static float yawErrIntOut = 0.f;
 static float heightErrIntOut = 0.f;
+
+// -------- in out values --------
+
+static uint8_t landingFlag = 0.f;
+
+// -------- other values --------
+
+static uint8_t motorsArmed = 0;
 
 void set_move_vector(float x, float y)
 {
@@ -202,6 +213,11 @@ void set_roll_adjust(float val)
     rollAdjustIn = val;
 }
 
+void set_acc_filtering(float val)
+{
+    accFilteringIn = val;
+}
+
 void schedule_gyro_calibration()
 {
     needCalibrateGyro = 1;
@@ -215,6 +231,21 @@ void schedule_mag_calibration()
 void schedule_esc_calibration()
 {
     needCalibrateEsc = 1;
+}
+
+void set_landing_flag(uint8_t val)
+{
+    landingFlag = val;
+}
+
+void set_use_relative_acceleration(uint8_t val)
+{
+    useRelativeAccelerationIn = val;
+}
+
+void set_desired_relative_acceleration(float val)
+{
+    desiredRelativeAccelerationIn = val;
 }
 
 float get_current_pitch_err()
@@ -302,6 +333,11 @@ float get_height_err_int()
     return heightErrIntOut;
 }
 
+uint8_t get_landing_flag()
+{
+    return landingFlag;
+}
+
 static uint8_t check_scheduled_actions()
 {
     if(needCalibrateGyro)
@@ -318,7 +354,11 @@ static uint8_t check_scheduled_actions()
     }
     if(needCalibrateEsc)
     {
-        calibrate_esc();
+        if (!motorsArmed)
+        {
+            calibrate_esc();
+            motorsArmed = 1;
+        }
         needCalibrateEsc = 0;
         return 1;
     }
@@ -326,6 +366,12 @@ static uint8_t check_scheduled_actions()
     {
         set_acc_gyro_filtering_mode(imuLPFModeIn);
         imuLPFModeIn = 0;
+        return 1;
+    }
+    if(!motorsArmed && desiredHeightIn >= 0.05f)
+    {
+        arm_esc();
+        motorsArmed = 1;
         return 1;
     }
     return 0;
@@ -362,7 +408,6 @@ static int clamp_integer(int val, int min, int max)
 
 static void control_loop_task(void * params)
 {
-    motor_control_setup();
     i2c_sensors_setup();
     ultrasonic_setup();
     timer_config_t t_conf = {
@@ -385,6 +430,8 @@ static void control_loop_task(void * params)
 	float yawErrInt = 0.f;
 	float heightErrInt = 0.f;
     float prevLoopFreq = 0.f;
+    vec3 filteredAccData; // gravity direction
+    float heightAccelerationSnapshot = 0.f;
 
     while(1)
     {
@@ -403,6 +450,7 @@ static void control_loop_task(void * params)
 		float desiredHeight = desiredHeightIn;
 		float accTrust = accTrustIn;
 		float magTrust = magTrustIn;
+        float accFiltering = accFilteringIn;
 		float turnOffInclineAngle = turnOffInclineAngleIn;
 		float pitchPropCoef = pitchPropCoefIn;
 		float pitchDerCoef = pitchDerCoefIn;
@@ -417,10 +465,12 @@ static void control_loop_task(void * params)
 		float heightDerCoef = heightDerCoefIn;
 		float heightIntCoef = heightIntCoefIn;
 		float baseAcceleration = baseAccelerationIn;
+        uint8_t useRelativeAcceleration = useRelativeAccelerationIn;
+        float desiredRelativeAcceleration = desiredRelativeAccelerationIn;
 
         // get all sensor and time data
-        vec3 acc_data;
-        get_acc_data(acc_data);
+        vec3 acc_data_raw;
+        get_acc_data(acc_data_raw);
         vec3 gyro_data;
         get_gyro_calibrated_data(gyro_data);
         vec3 mag_data;
@@ -431,12 +481,19 @@ static void control_loop_task(void * params)
         timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &u_seconds_elapsed);
         timer_set_counter_value(TIMER_GROUP_0, TIMER_1, 0);
 
+
         // computing values
+        filteredAccData[0] = filteredAccData[0] * accFiltering + acc_data_raw[0] * (1.f - accFiltering);
+        filteredAccData[1] = filteredAccData[1] * accFiltering + acc_data_raw[1] * (1.f - accFiltering);
+        filteredAccData[2] = filteredAccData[2] * accFiltering + acc_data_raw[2] * (1.f - accFiltering);
+        vec3 acceleration;
+        glm_vec3_sub(acc_data_raw, filteredAccData, acceleration);
+
         float seconds_elapsed = u_seconds_elapsed / 1000000.f;
 
-        float accPitch = glm_deg(atan2(acc_data[0], acc_data[2]));
-        vec2 tmp1 = { acc_data[2], acc_data[0] };
-		float accRoll = -glm_deg(atan2(acc_data[1], glm_vec2_norm(tmp1)));
+        float accPitch = glm_deg(atan2(filteredAccData[0], filteredAccData[2]));
+        vec2 tmp1 = { filteredAccData[2], filteredAccData[0] };
+		float accRoll = -glm_deg(atan2(filteredAccData[1], glm_vec2_norm(tmp1)));
 
         float gyroPitch = prevPitch - gyro_data[1] * seconds_elapsed;
 		float gyroRoll = prevRoll - gyro_data[0] * seconds_elapsed;
@@ -522,7 +579,23 @@ static void control_loop_task(void * params)
         float pitchMotorAdjust = (currentPitchError * pitchPropCoef + pitchErrorChangeRate * pitchDerCoef + pitchErrInt) / 1000.f;
 		float rollMotorAdjust = (currentRollError * rollPropCoef + rollErrorChangeRate * rollDerCoef + rollErrInt) / 1000.f;
 		float yawMotorAdjust = (currentYawError * yawPropCoef + yawErrorChangeRate * yawDerCoef + yawErrInt) / 1000.f;
-		float heightMotorAdjust = currentHeightError * heightPropCoef + heightErrorChangeRate * heightDerCoef + heightErrInt;
+		float heightMotorAdjust;
+        if (useRelativeAcceleration)
+        {
+            heightMotorAdjust = heightAccelerationSnapshot + (1.f - heightAccelerationSnapshot - baseAcceleration) * desiredRelativeAcceleration;
+            if (currentHeight < 0.1f && desiredRelativeAcceleration < -0.9f)
+            {
+                useRelativeAccelerationIn = 0;
+                desiredRelativeAccelerationIn = 0.f;
+                desiredHeightIn = 0.f;
+                landingFlag = 1;
+            }
+        }
+        else
+        {
+            heightMotorAdjust = currentHeightError * heightPropCoef + heightErrorChangeRate * heightDerCoef + heightErrInt;
+            heightAccelerationSnapshot = heightMotorAdjust;
+        }
 
         float frontLeft = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust);
 		float frontRight = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust);
@@ -541,7 +614,10 @@ static void control_loop_task(void * params)
 			yawErrInt = 0.f;
 
 		}
-		set_motor_vals(frontLeft, frontRight, backLeft, backRight);
+        if (motorsArmed)
+        {
+		    set_motor_vals(frontLeft, frontRight, backLeft, backRight);
+        }
         
         float currentLoopFreq = (1 / seconds_elapsed) * 0.5f + prevLoopFreq * 0.5;
         prevLoopFreq = currentLoopFreq;

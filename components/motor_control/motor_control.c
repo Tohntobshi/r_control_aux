@@ -84,12 +84,18 @@ void set_motor_vals(float fl_val, float fr_val, float bl_val, float br_val)
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3);
 }
 
+void arm_esc()
+{
+    motor_control_setup();
+    set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+}
+
 void calibrate_esc()
 {
-    disable_motor_control();
-    vTaskDelay(6000 / portTICK_PERIOD_MS);
     motor_control_setup();
     set_motor_vals(1.0f, 1.0f, 1.0f, 1.0f);
-    vTaskDelay(4000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
     set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
 }

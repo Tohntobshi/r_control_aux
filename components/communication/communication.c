@@ -13,7 +13,7 @@
 #define GPIO_CS 15
 #define SPI_READY_PIN 27
 
-
+// #define PRINT_ALL_SET_COMMANDS 1
 
 static TaskHandle_t communicationTaskHandle;
 
@@ -104,6 +104,11 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_float_to_net(range[1], buf_to_write_val + 16);
         set_float_to_net(range[2], buf_to_write_val + 20);
         return 24;
+    }
+    if (reg == GET_PRIMARY_INFO)
+    {
+        buf_to_write_val[0] = get_landing_flag();
+        return 1;
     }
     return 0;
 }
@@ -366,6 +371,42 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("set mag calib mid %f %f %f range %f %f %f\n", mid[0], mid[1], mid[2], range[0], range[1], range[2]);
         #endif
         set_mag_calibration(mid, range);
+        return;
+    }
+    if (reg == SET_ACC_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set acc filtering %f\n", res);
+        #endif
+        set_acc_filtering(res);
+        return;
+    }
+    if (reg == RESET_LANDING_FLAG && size == 1)
+    {
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("reset landing flag\n");
+        #endif
+        set_landing_flag(0);
+        set_desired_height(0.f);
+        return;
+    }
+    if (reg == SWITCH_TO_RELATIVE_ACCELERATION && size == 1)
+    {
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("switch to relative acceleartion\n");
+        #endif
+        set_desired_relative_acceleration(0.f);
+        set_use_relative_acceleration(1);
+        return;
+    }
+    if (reg == SET_RELATIVE_ACCELERATION && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set relative acceleration %f\n", res);
+        #endif
+        set_desired_relative_acceleration(res);
         return;
     }
     #ifdef PRINT_ALL_SET_COMMANDS

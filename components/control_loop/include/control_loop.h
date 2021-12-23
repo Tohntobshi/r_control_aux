@@ -30,6 +30,10 @@ void schedule_mag_calibration();
 void schedule_esc_calibration();
 void set_gyro_calibration(vec3 value);
 void set_mag_calibration(vec3 mid_vals, vec3 range);
+void set_acc_filtering(float val);
+void set_use_relative_acceleration(uint8_t val);
+void set_desired_relative_acceleration(float val);
+void set_landing_flag(uint8_t val);
 
 
 float get_current_pitch_err();
@@ -56,3 +60,5 @@ float get_loop_freq();
 
 void get_gyro_calibration(vec3 dest);
 void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest);
+
+uint8_t get_landing_flag();
