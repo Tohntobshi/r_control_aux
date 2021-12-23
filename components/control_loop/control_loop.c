@@ -48,6 +48,8 @@ static float accTrustIn = 0.1f;
 static float magTrustIn = 0.1f;
 static uint8_t imuLPFModeIn = 3;
 static float accFilteringIn = 0.95f;
+static float usHeightFilteringIn = 0.95f;
+static float usHeightDerFilteringIn = 0.95f;
 
 // safety
 static uint8_t turnOffTrigger = 0;
@@ -246,6 +248,16 @@ void set_use_relative_acceleration(uint8_t val)
 void set_desired_relative_acceleration(float val)
 {
     desiredRelativeAccelerationIn = val;
+}
+
+void set_us_height_filtering(float val)
+{
+    usHeightFilteringIn = val;
+}
+
+void set_us_height_der_filtering(float val)
+{
+    usHeightDerFilteringIn = val;
 }
 
 float get_current_pitch_err()
@@ -467,6 +479,8 @@ static void control_loop_task(void * params)
 		float baseAcceleration = baseAccelerationIn;
         uint8_t useRelativeAcceleration = useRelativeAccelerationIn;
         float desiredRelativeAcceleration = desiredRelativeAccelerationIn;
+        float usHeightFiltering = usHeightFilteringIn;
+        float usHeightDerFiltering = usHeightDerFilteringIn;
 
         // get all sensor and time data
         vec3 acc_data_raw;
@@ -559,11 +573,11 @@ static void control_loop_task(void * params)
 		}
 		else
 		{
-			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * 0.05f + prevHeight * 0.95f;
+			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
 			currentHeightError = desiredHeight - currentHeight;
 			heightErrInt += currentHeightError * seconds_elapsed * heightIntCoef;
 		}
-		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * 0.05f + prevHeightDer * 0.95f;
+		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * (1.f - usHeightDerFiltering) + prevHeightDer * usHeightDerFiltering;
         float heightErrorChangeRate = -heightDer;
 		prevHeight = currentHeight;
 		prevHeightDer = heightDer;

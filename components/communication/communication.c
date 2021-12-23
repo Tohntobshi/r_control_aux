@@ -409,6 +409,24 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_desired_relative_acceleration(res);
         return;
     }
+    if (reg == SET_US_HEIGHT_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set us height filtering %f\n", res);
+        #endif
+        set_us_height_filtering(res);
+        return;
+    }
+    if (reg == SET_US_HEIGHT_DER_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set us height der filtering %f\n", res);
+        #endif
+        set_us_height_der_filtering(res);
+        return;
+    }
     #ifdef PRINT_ALL_SET_COMMANDS
     printf("unknown set command\n");
     #endif

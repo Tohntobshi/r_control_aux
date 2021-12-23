@@ -34,6 +34,8 @@ void set_acc_filtering(float val);
 void set_use_relative_acceleration(uint8_t val);
 void set_desired_relative_acceleration(float val);
 void set_landing_flag(uint8_t val);
+void set_us_height_filtering(float val);
+void set_us_height_der_filtering(float val);
 
 
 float get_current_pitch_err();
