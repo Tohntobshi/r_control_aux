@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "communication.h"
 #include "control_loop/include/control_loop.h"
+#include "battery_check/include/battery_check.h"
 #include "lwip/def.h"
 
 #define GPIO_MOSI 13
@@ -69,7 +70,7 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_float_to_net(err_der_int2, buf_to_write_val + 20);
         return 24;
     }
-    if (reg == GET_MOTOR_VALS_AND_FREQ)
+    if (reg == GET_MOTOR_VALS_FREQ_AND_VOLTAGE)
     {
         uint16_t fl = get_fl_motor_val();
         uint16_t fr = get_fr_motor_val();
@@ -81,7 +82,8 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_short_to_net(bl, buf_to_write_val + 4);
         set_short_to_net(br, buf_to_write_val + 6);
         set_float_to_net(freq, buf_to_write_val + 8);
-        return 12;
+        set_float_to_net(get_current_voltage(), buf_to_write_val + 12);
+        return 16;
     }
     if (reg == GET_GYRO_CALIBRATION)
     {
@@ -108,7 +110,8 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
     if (reg == GET_PRIMARY_INFO)
     {
         buf_to_write_val[0] = get_landing_flag();
-        return 1;
+        set_float_to_net(get_current_voltage(), buf_to_write_val + 1);
+        return 5;
     }
     return 0;
 }

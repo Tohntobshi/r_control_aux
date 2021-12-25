@@ -26,7 +26,16 @@
     "random": "c",
     "limits": "c",
     "sys.h": "c",
-    "def.h": "c"
+    "def.h": "c",
+    "esp_adc_cal.h": "c",
+    "adc.h": "c",
+    "array": "c",
+    "*.tcc": "c",
+    "memory": "c",
+    "future": "c",
+    "istream": "c",
+    "tuple": "c",
+    "utility": "c"
   },
   "cmake.configureOnOpen": false
 }
