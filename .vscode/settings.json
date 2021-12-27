@@ -35,7 +35,8 @@
     "future": "c",
     "istream": "c",
     "tuple": "c",
-    "utility": "c"
+    "utility": "c",
+    "storage.h": "c"
   },
   "cmake.configureOnOpen": false
 }

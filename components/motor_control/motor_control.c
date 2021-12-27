@@ -3,13 +3,36 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "motor_control.h"
+#include "storage/include/storage.h"
 
 #define GPIO_FL_PIN 2
 #define GPIO_FR_PIN 4
 #define GPIO_BL_PIN 16
 #define GPIO_BR_PIN 17
 
+
+void set_motor_vals(float fl_val, float fr_val, float bl_val, float br_val)
+{
+    float fl_duty_fraction = (fl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float fr_duty_fraction = (fr_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float bl_duty_fraction = (bl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    float br_duty_fraction = (br_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
+    uint32_t flduty = fl_duty_fraction * 0b11111111111;
+    uint32_t frduty = fr_duty_fraction * 0b11111111111;
+    uint32_t blduty = bl_duty_fraction * 0b11111111111;
+    uint32_t brduty = br_duty_fraction * 0b11111111111;
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, flduty);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, frduty);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2, blduty);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3, brduty);
+    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3);
+}
+
 void motor_control_setup() {
+    uint8_t need_calibrate = get_need_calibrate_from_storage();
     ledc_timer_config_t ledc_timer = {
         .duty_resolution = LEDC_TIMER_11_BIT, // resolution of PWM duty
         .freq_hz = 3333,        // frequency of PWM signal
@@ -54,48 +77,44 @@ void motor_control_setup() {
         .timer_sel  = LEDC_TIMER_0
     };
     ledc_channel_config(&ledc_channel3);
-}
 
-static void disable_motor_control()
-{
-    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 0);
-    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0);
-    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2, 0);
-    ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3, 0);
-}
-
-void set_motor_vals(float fl_val, float fr_val, float bl_val, float br_val)
-{
-    float fl_duty_fraction = (fl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
-    float fr_duty_fraction = (fr_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
-    float bl_duty_fraction = (bl_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
-    float br_duty_fraction = (br_val * 125.f + 125.f) / 300.f; // from 125us to 250us out of 300us full cycle
-    uint32_t flduty = fl_duty_fraction * 0b11111111111;
-    uint32_t frduty = fr_duty_fraction * 0b11111111111;
-    uint32_t blduty = bl_duty_fraction * 0b11111111111;
-    uint32_t brduty = br_duty_fraction * 0b11111111111;
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, flduty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, frduty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2, blduty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2);
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3, brduty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3);
-}
-
-void arm_esc()
-{
-    motor_control_setup();
+    if (need_calibrate)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        set_motor_vals(1.0f, 1.0f, 1.0f, 1.0f);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        set_need_calibrate_to_storage(0);
+    }
     set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
+
+// static void disable_motor_control()
+// {
+//     ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 0);
+//     ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0);
+//     ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_2, 0);
+//     ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_3, 0);
+//     gpio_set_direction(GPIO_FL_PIN, GPIO_MODE_OUTPUT);
+//     gpio_set_level(GPIO_FL_PIN, 0);
+//     gpio_set_direction(GPIO_FR_PIN, GPIO_MODE_OUTPUT);
+//     gpio_set_level(GPIO_FR_PIN, 0);
+//     gpio_set_direction(GPIO_BL_PIN, GPIO_MODE_OUTPUT);
+//     gpio_set_level(GPIO_BL_PIN, 0);
+//     gpio_set_direction(GPIO_BR_PIN, GPIO_MODE_OUTPUT);
+//     gpio_set_level(GPIO_BR_PIN, 0);
+// }
+
+
+
+// void arm_esc()
+// {
+//     motor_control_setup();
+//     set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
+//     vTaskDelay(3000 / portTICK_PERIOD_MS);
+// }
 
 void calibrate_esc()
 {
-    motor_control_setup();
-    set_motor_vals(1.0f, 1.0f, 1.0f, 1.0f);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    set_motor_vals(0.0f, 0.0f, 0.0f, 0.0f);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    set_need_calibrate_to_storage(1);
 }

@@ -8,11 +8,15 @@
 
 static TaskHandle_t batteryCheckTaskHandle;
 
+#ifndef VOLTAGE_SHIFT_FOR_THIS_PARTICULAR_DEVICE
+#define VOLTAGE_SHIFT_FOR_THIS_PARTICULAR_DEVICE 0.4f
+#endif
+
 static float current_voltage = 0.f;
 
 float get_current_voltage()
 {
-    return current_voltage;
+    return current_voltage + VOLTAGE_SHIFT_FOR_THIS_PARTICULAR_DEVICE;
 }
 
 static void battery_check_task(void * params)
@@ -24,9 +28,9 @@ static void battery_check_task(void * params)
     while (1) 
     {
         int raw = adc1_get_raw(ADC1_CHANNEL_7);
-        current_voltage = (esp_adc_cal_raw_to_voltage(raw, &adc_chars) / 1000.f) * 5.579f * 0.05f + current_voltage * 0.95f ;
+        current_voltage = (esp_adc_cal_raw_to_voltage(raw, &adc_chars) / 1000.f) * 5.579f * 0.2f + current_voltage * 0.8f ;
         // printf("adc %f V\n", voltage);
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     
 }

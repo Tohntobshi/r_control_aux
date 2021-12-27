@@ -94,6 +94,15 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_float_to_net(vals[2], buf_to_write_val + 8);
         return 12;
     }
+    if (reg == GET_ACC_CALIBRATION)
+    {
+        vec3 vals;
+        get_acc_calibration(vals);
+        set_float_to_net(vals[0], buf_to_write_val);
+        set_float_to_net(vals[1], buf_to_write_val + 4);
+        set_float_to_net(vals[2], buf_to_write_val + 8);
+        return 12;
+    }
     if (reg == GET_MAG_CALIBRATION)
     {
         
@@ -281,12 +290,20 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_mag_trust(res);
         return;
     }
-    if (reg == SET_IMU_LPF_MODE && size == 1)
+    if (reg == SET_ACC_LPF_MODE && size == 1)
     {
         #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set lpf mode %d\n", buf_with_val[0]);
+        printf("set acc lpf mode %d\n", buf_with_val[0]);
         #endif
-        schedule_set_acc_gyro_filtering_mode(buf_with_val[0]);
+        schedule_set_acc_filtering_mode(buf_with_val[0]);
+        return;
+    }
+     if (reg == SET_GYRO_LPF_MODE && size == 1)
+    {
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set gyro lpf mode %d\n", buf_with_val[0]);
+        #endif
+        schedule_set_gyro_filtering_mode(buf_with_val[0]);
         return;
     }
     if (reg == RESET_TURN_OFF_TRIGGER && size == 1)
@@ -324,6 +341,14 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_roll_adjust(res);
         return;
     }
+    if (reg == CALIBRATE_ACC && size == 1)
+    {
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("calibrate acc\n");
+        #endif
+        schedule_acc_calibration();
+        return;
+    }
     if (reg == CALIBRATE_GYRO && size == 1)
     {
         #ifdef PRINT_ALL_SET_COMMANDS
@@ -346,6 +371,18 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("calibrate esc\n");
         #endif
         schedule_esc_calibration();
+        return;
+    }
+    if (reg == SET_ACC_CALIBRATION && size == 12)
+    {
+        vec3 result;
+        result[0] = get_float_from_net(buf_with_val);
+        result[1] = get_float_from_net(buf_with_val + 4);
+        result[2] = get_float_from_net(buf_with_val + 8);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set acc calib %f %f %f\n", result[0], result[1], result[2]);
+        #endif
+        set_acc_calibration(result);
         return;
     }
     if (reg == SET_GYRO_CALIBRATION && size == 12)
@@ -428,6 +465,42 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("set us height der filtering %f\n", res);
         #endif
         set_us_height_der_filtering(res);
+        return;
+    }
+    if (reg == SET_PITCH_I_LIMIT && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set pitch i limit %f\n", res);
+        #endif
+        set_pitch_i_limit(res);
+        return;
+    }
+    if (reg == SET_ROLL_I_LIMIT && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set roll i limit %f\n", res);
+        #endif
+        set_roll_i_limit(res);
+        return;
+    }
+    if (reg == SET_YAW_I_LIMIT && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set yaw i limit %f\n", res);
+        #endif
+        set_yaw_i_limit(res);
+        return;
+    }
+    if (reg == SET_HEIGHT_I_LIMIT && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height i limit %f\n", res);
+        #endif
+        set_height_i_limit(res);
         return;
     }
     #ifdef PRINT_ALL_SET_COMMANDS

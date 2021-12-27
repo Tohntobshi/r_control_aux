@@ -27,26 +27,31 @@ static float desiredRelativeAccelerationIn = 0.f;
 static float pitchPropCoefIn = 0.f;
 static float pitchDerCoefIn = 0.f;
 static float pitchIntCoefIn = 0.f;
+static float pitchIntLimitIn = 0.f;
 
 // PID coefficients for roll
 static float rollPropCoefIn = 0.f;
 static float rollDerCoefIn = 0.f;
 static float rollIntCoefIn = 0.f;
+static float rollIntLimitIn = 0.f;
 
 // PID coefficients for yaw
 static float yawPropCoefIn = 0.f;
 static float yawDerCoefIn = 0.f;
 static float yawIntCoefIn = 0.f;
+static float yawIntLimitIn = 0.f;
 
 // PID coefficients for height
 static float heightPropCoefIn = 0.f;
 static float heightDerCoefIn = 0.f;
 static float heightIntCoefIn = 0.f;
+static float heightIntLimitIn = 0.f;
 
 // filtering
 static float accTrustIn = 0.1f;
 static float magTrustIn = 0.1f;
-static uint8_t imuLPFModeIn = 3;
+static uint8_t accLPFModeIn = 3;
+static uint8_t gyroLPFModeIn = 3;
 static float accFilteringIn = 0.95f;
 static float usHeightFilteringIn = 0.95f;
 static float usHeightDerFilteringIn = 0.95f;
@@ -61,6 +66,7 @@ static float rollAdjustIn = 0.f;
 static float baseAccelerationIn = 0.f;
 
 // calibration
+static uint8_t needCalibrateAcc = 0;
 static uint8_t needCalibrateGyro = 0;
 static uint8_t needCalibrateMag = 0;
 static uint8_t needCalibrateEsc = 0;
@@ -95,9 +101,6 @@ static float heightErrIntOut = 0.f;
 
 static uint8_t landingFlag = 0.f;
 
-// -------- other values --------
-
-static uint8_t motorsArmed = 0;
 
 void set_move_vector(float x, float y)
 {
@@ -190,9 +193,14 @@ void set_mag_trust(float val)
     magTrustIn = val;
 }
 
-void schedule_set_acc_gyro_filtering_mode(uint8_t val)
+void schedule_set_acc_filtering_mode(uint8_t val)
 {
-    imuLPFModeIn = val;
+    accLPFModeIn = val;
+}
+
+void schedule_set_gyro_filtering_mode(uint8_t val)
+{
+    gyroLPFModeIn = val;
 }
 
 void reset_turn_off_trigger()
@@ -223,6 +231,11 @@ void set_acc_filtering(float val)
 void schedule_gyro_calibration()
 {
     needCalibrateGyro = 1;
+}
+
+void schedule_acc_calibration()
+{
+    needCalibrateAcc = 1;
 }
 
 void schedule_mag_calibration()
@@ -258,6 +271,26 @@ void set_us_height_filtering(float val)
 void set_us_height_der_filtering(float val)
 {
     usHeightDerFilteringIn = val;
+}
+
+void set_pitch_i_limit(float val)
+{
+    pitchIntLimitIn = val;
+}
+
+void set_roll_i_limit(float val)
+{
+    rollIntLimitIn = val;
+}
+
+void set_yaw_i_limit(float val)
+{
+    yawIntLimitIn = val;
+}
+
+void set_height_i_limit(float val)
+{
+    heightIntLimitIn = val;
 }
 
 float get_current_pitch_err()
@@ -358,6 +391,12 @@ static uint8_t check_scheduled_actions()
         needCalibrateGyro = 0;
         return 1;
     }
+    if(needCalibrateAcc)
+    {
+        calibrate_acc();
+        needCalibrateAcc = 0;
+        return 1;
+    }
     if(needCalibrateMag)
     {
         calibrate_mag();
@@ -366,24 +405,20 @@ static uint8_t check_scheduled_actions()
     }
     if(needCalibrateEsc)
     {
-        if (!motorsArmed)
-        {
-            calibrate_esc();
-            motorsArmed = 1;
-        }
+        calibrate_esc();
         needCalibrateEsc = 0;
         return 1;
     }
-    if(imuLPFModeIn)
+    if(accLPFModeIn)
     {
-        set_acc_gyro_filtering_mode(imuLPFModeIn);
-        imuLPFModeIn = 0;
+        set_acc_filtering_mode(accLPFModeIn);
+        accLPFModeIn = 0;
         return 1;
     }
-    if(!motorsArmed && desiredHeightIn >= 0.05f)
+    if(gyroLPFModeIn)
     {
-        arm_esc();
-        motorsArmed = 1;
+        set_gyro_filtering_mode(gyroLPFModeIn);
+        gyroLPFModeIn = 0;
         return 1;
     }
     return 0;
@@ -418,8 +453,14 @@ static int clamp_integer(int val, int min, int max)
     return val > max ? max : (val < min ? min : val);
 }
 
+static float unlinearize_to_motor(float val)
+{
+    return glm_clamp_zo(0.96f * pow(val, 4.f/7.f));
+}
+
 static void control_loop_task(void * params)
 {
+    motor_control_setup();
     i2c_sensors_setup();
     ultrasonic_setup();
     timer_config_t t_conf = {
@@ -467,15 +508,19 @@ static void control_loop_task(void * params)
 		float pitchPropCoef = pitchPropCoefIn;
 		float pitchDerCoef = pitchDerCoefIn;
 		float pitchIntCoef = pitchIntCoefIn;
+        float pitchIntLimit = pitchIntLimitIn;
 		float rollPropCoef = rollPropCoefIn;
 		float rollDerCoef = rollDerCoefIn;
 		float rollIntCoef = rollIntCoefIn;
+        float rollIntLimit = rollIntLimitIn;
 		float yawPropCoef = yawPropCoefIn;
 		float yawDerCoef = yawDerCoefIn;
 		float yawIntCoef = yawIntCoefIn;
+        float yawIntLimit = yawIntLimitIn;
 		float heightPropCoef = heightPropCoefIn;
 		float heightDerCoef = heightDerCoefIn;
 		float heightIntCoef = heightIntCoefIn;
+        float heightIntLimit = heightIntLimitIn;
 		float baseAcceleration = baseAccelerationIn;
         uint8_t useRelativeAcceleration = useRelativeAccelerationIn;
         float desiredRelativeAcceleration = desiredRelativeAccelerationIn;
@@ -484,7 +529,7 @@ static void control_loop_task(void * params)
 
         // get all sensor and time data
         vec3 acc_data_raw;
-        get_acc_data(acc_data_raw);
+        get_acc_calibrated_data(acc_data_raw);
         vec3 gyro_data;
         get_gyro_calibrated_data(gyro_data);
         vec3 mag_data;
@@ -560,9 +605,12 @@ static void control_loop_task(void * params)
 		float rollErrorChangeRate = gyro_data[0];
 		float yawErrorChangeRate = -gyro_data[2];
 		
-		pitchErrInt += currentPitchError * seconds_elapsed * pitchIntCoef;
-		rollErrInt += currentRollError * seconds_elapsed * rollIntCoef;
-		yawErrInt += currentYawError * seconds_elapsed * yawIntCoef;
+		pitchErrInt += currentPitchError * seconds_elapsed * pitchIntCoef / 1000.f;
+        pitchErrInt = glm_clamp(pitchErrInt, -pitchIntLimit, pitchIntLimit);
+		rollErrInt += currentRollError * seconds_elapsed * rollIntCoef / 1000.f;
+        rollErrInt = glm_clamp(rollErrInt, -rollIntLimit, rollIntLimit);
+		yawErrInt += currentYawError * seconds_elapsed * yawIntCoef / 1000.f;
+        yawErrInt = glm_clamp(yawErrInt, -yawIntLimit, yawIntLimit);
 
         float currentHeight = 0.f;
 		float currentHeightError = 0.f;
@@ -576,6 +624,7 @@ static void control_loop_task(void * params)
 			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
 			currentHeightError = desiredHeight - currentHeight;
 			heightErrInt += currentHeightError * seconds_elapsed * heightIntCoef;
+            heightErrInt = glm_clamp(heightErrInt, -heightIntLimit, heightIntLimit);
 		}
 		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * (1.f - usHeightDerFiltering) + prevHeightDer * usHeightDerFiltering;
         float heightErrorChangeRate = -heightDer;
@@ -590,9 +639,9 @@ static void control_loop_task(void * params)
 			turnOffTrigger = 1;
 		}
 
-        float pitchMotorAdjust = (currentPitchError * pitchPropCoef + pitchErrorChangeRate * pitchDerCoef + pitchErrInt) / 1000.f;
-		float rollMotorAdjust = (currentRollError * rollPropCoef + rollErrorChangeRate * rollDerCoef + rollErrInt) / 1000.f;
-		float yawMotorAdjust = (currentYawError * yawPropCoef + yawErrorChangeRate * yawDerCoef + yawErrInt) / 1000.f;
+        float pitchMotorAdjust = (currentPitchError * pitchPropCoef + pitchErrorChangeRate * pitchDerCoef) / 1000.f + pitchErrInt;
+		float rollMotorAdjust = (currentRollError * rollPropCoef + rollErrorChangeRate * rollDerCoef) / 1000.f + rollErrInt;
+		float yawMotorAdjust = (currentYawError * yawPropCoef + yawErrorChangeRate * yawDerCoef) / 1000.f + yawErrInt;
 		float heightMotorAdjust;
         if (useRelativeAcceleration)
         {
@@ -611,10 +660,10 @@ static void control_loop_task(void * params)
             heightAccelerationSnapshot = heightMotorAdjust;
         }
 
-        float frontLeft = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust);
-		float frontRight = glm_clamp_zo(baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust);
-		float backLeft = glm_clamp_zo(baseAcceleration + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust);
-		float backRight = glm_clamp_zo(baseAcceleration + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust);
+        float frontLeft = unlinearize_to_motor(baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust);
+		float frontRight = unlinearize_to_motor(baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust);
+		float backLeft = unlinearize_to_motor(baseAcceleration + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust);
+		float backRight = unlinearize_to_motor(baseAcceleration + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust);
 
 		if (desiredHeight < 0.05f || turnOffTrigger)
 		{
@@ -628,10 +677,7 @@ static void control_loop_task(void * params)
 			yawErrInt = 0.f;
 
 		}
-        if (motorsArmed)
-        {
-		    set_motor_vals(frontLeft, frontRight, backLeft, backRight);
-        }
+        set_motor_vals(frontLeft, frontRight, backLeft, backRight);
         
         float currentLoopFreq = (1 / seconds_elapsed) * 0.5f + prevLoopFreq * 0.5;
         prevLoopFreq = currentLoopFreq;

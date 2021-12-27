@@ -20,11 +20,13 @@ void set_height_der_coef(float val);
 void set_height_int_coef(float val);
 void set_acc_trust(float val);
 void set_mag_trust(float val);
-void schedule_set_acc_gyro_filtering_mode(uint8_t val);
+void schedule_set_acc_filtering_mode(uint8_t val);
+void schedule_set_gyro_filtering_mode(uint8_t val);
 void reset_turn_off_trigger();
 void set_turn_off_incline_angle(float val);
 void set_pitch_adjust(float val);
 void set_roll_adjust(float val);
+void schedule_acc_calibration();
 void schedule_gyro_calibration();
 void schedule_mag_calibration();
 void schedule_esc_calibration();
@@ -36,6 +38,11 @@ void set_desired_relative_acceleration(float val);
 void set_landing_flag(uint8_t val);
 void set_us_height_filtering(float val);
 void set_us_height_der_filtering(float val);
+void set_pitch_i_limit(float val);
+void set_roll_i_limit(float val);
+void set_yaw_i_limit(float val);
+void set_height_i_limit(float val);
+void set_acc_calibration(vec3 value);
 
 
 float get_current_pitch_err();
@@ -60,6 +67,7 @@ uint16_t get_bl_motor_val();
 uint16_t get_br_motor_val();
 float get_loop_freq();
 
+void get_acc_calibration(vec3 dest);
 void get_gyro_calibration(vec3 dest);
 void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest);
 

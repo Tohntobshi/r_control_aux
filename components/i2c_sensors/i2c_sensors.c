@@ -34,7 +34,9 @@ static vec3 mag_adjustment_vals;
 static vec3 mag_range;
 static vec3 mag_mid_vals;
 static vec3 gyro_calibration;
+static vec3 acc_calibration;
 
+static SemaphoreHandle_t accCalibMtx = NULL;
 static SemaphoreHandle_t gyroCalibMtx = NULL;
 static SemaphoreHandle_t magCalibMtx = NULL;
 
@@ -71,7 +73,7 @@ static int8_t read_bytes(uint8_t address, uint8_t reg, uint8_t * dest, uint16_t 
     return 0;
 }
 
-void get_acc_data(vec3 dest)
+static void get_acc_data(vec3 dest)
 {
 	uint8_t rawData[6];
 	read_bytes(MPU9250_ADDRESS, ACCEL_XOUT_H, rawData, 6);
@@ -127,6 +129,42 @@ float get_bar_data()
 	return pres;
 }
 
+void calibrate_acc()
+{
+    vec3 values = { 0.f, 0.f, 0.f };
+    vec3 zero = { 0.f, 0.f, 1.f };
+	for (int i = 0; i < 10000; i++) {
+		vec3 acc;
+        get_acc_data(acc);
+        glm_vec3_sub(acc, zero, acc);
+        glm_vec3_add(acc, values, values);
+	}
+    xSemaphoreTake(accCalibMtx, portMAX_DELAY);
+    glm_vec3_divs(values, 10000.f, acc_calibration);
+    xSemaphoreGive(accCalibMtx);
+}
+
+void set_acc_calibration(vec3 value)
+{
+    xSemaphoreTake(accCalibMtx, portMAX_DELAY);
+    glm_vec3_copy(value, acc_calibration);
+    xSemaphoreGive(accCalibMtx);
+}
+void get_acc_calibration(vec3 dest)
+{
+    xSemaphoreTake(accCalibMtx, portMAX_DELAY);
+    glm_vec3_copy(acc_calibration, dest);
+    xSemaphoreGive(accCalibMtx);
+}
+
+void get_acc_calibrated_data(vec3 dest)
+{
+    get_acc_data(dest);
+    xSemaphoreTake(accCalibMtx, portMAX_DELAY);
+    glm_vec3_sub(dest, acc_calibration, dest);
+    xSemaphoreGive(accCalibMtx);
+}
+
 void get_gyro_calibrated_data(vec3 dest)
 {
     get_gyro_data(dest);
@@ -148,6 +186,7 @@ void calibrate_gyro()
     xSemaphoreGive(gyroCalibMtx);
 }
 
+
 void set_gyro_calibration(vec3 value)
 {
     xSemaphoreTake(gyroCalibMtx, portMAX_DELAY);
@@ -161,6 +200,7 @@ void get_gyro_calibration(vec3 dest)
     glm_vec3_copy(gyro_calibration, dest);
     xSemaphoreGive(gyroCalibMtx);
 }
+
 
 void calibrate_mag()
 {
@@ -192,8 +232,6 @@ void calibrate_mag()
     xSemaphoreGive(magCalibMtx);
 }
 
-
-
 void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest)
 {
     xSemaphoreTake(magCalibMtx, portMAX_DELAY);
@@ -221,10 +259,14 @@ void get_mag_normalized_data(vec3 dest)
     glm_vec3_normalize(dest);
 }
 
-void set_acc_gyro_filtering_mode(uint8_t mode)
+void set_acc_filtering_mode(uint8_t mode)
+{
+    write_bytes(MPU9250_ADDRESS, ACCEL_CONFIG_2, &mode, 1);
+}
+
+void set_gyro_filtering_mode(uint8_t mode)
 {
     write_bytes(MPU9250_ADDRESS, CONFIG, &mode, 1);
-    write_bytes(MPU9250_ADDRESS, ACCEL_CONFIG_2, &mode, 1);
 }
 
 void i2c_sensors_setup()
@@ -281,6 +323,7 @@ void i2c_sensors_setup()
 	bmp280_set_config(&bmpConf, &bmp);
 	bmp280_set_power_mode(BMP280_NORMAL_MODE, &bmp);
 
+    accCalibMtx = xSemaphoreCreateMutex();
     gyroCalibMtx = xSemaphoreCreateMutex();
     magCalibMtx = xSemaphoreCreateMutex();
 }
