@@ -7,6 +7,7 @@
 #include "i2c_sensors.h"
 #include "motor_control.h"
 #include "us_sensor.h"
+#include "battery_check/include/battery_check.h"
 
 #define MIN_VAL 1000
 #define MAX_VAL 2000
@@ -71,6 +72,14 @@ static uint8_t needCalibrateGyro = 0;
 static uint8_t needCalibrateMag = 0;
 static uint8_t needCalibrateEsc = 0;
 
+// motor control linearization
+static float motorCurveCoefA = 0.96f;
+static float motorCurveCoefB = 0.57f;
+static float voltageDropCurveCoefA = 2.f;
+static float voltageDropCurveCoefB = 3.f;
+static float powerLossCurveCoefA = 0.53f; // power loss from base 12.6V to base 10.5V
+static float powerLossCurveCoefB = 1.f;
+
 // -------- out values --------
 
 static float currentPitchErrorOut = 0.f;
@@ -96,6 +105,8 @@ static float pitchErrIntOut = 0.f;
 static float rollErrIntOut = 0.f;
 static float yawErrIntOut = 0.f;
 static float heightErrIntOut = 0.f;
+
+float currentBaseVoltageOut = 0.f;
 
 // -------- in out values --------
 
@@ -293,6 +304,36 @@ void set_height_i_limit(float val)
     heightIntLimitIn = val;
 }
 
+void set_motor_curve_a(float val)
+{
+    motorCurveCoefA = val;
+}
+
+void set_motor_curve_b(float val)
+{
+    motorCurveCoefB = val;
+}
+
+void set_voltage_drop_curve_a(float val)
+{
+    voltageDropCurveCoefA = val;
+}
+
+void set_voltage_drop_curve_b(float val)
+{
+    voltageDropCurveCoefB = val;
+}
+
+void set_power_loss_curve_a(float val)
+{
+    powerLossCurveCoefA = val;
+}
+
+void set_power_loss_curve_b(float val)
+{
+    powerLossCurveCoefB = val;
+}
+
 float get_current_pitch_err()
 {
     return currentPitchErrorOut;
@@ -383,6 +424,11 @@ uint8_t get_landing_flag()
     return landingFlag;
 }
 
+float get_base_voltage()
+{
+    return currentBaseVoltageOut;
+}
+
 static uint8_t check_scheduled_actions()
 {
     if(needCalibrateGyro)
@@ -453,9 +499,23 @@ static int clamp_integer(int val, int min, int max)
     return val > max ? max : (val < min ? min : val);
 }
 
-static float unlinearize_to_motor(float val)
+static float map_to_motor(float val)
 {
-    return glm_clamp_zo(0.96f * pow(val, 4.f/7.f));
+    return glm_clamp_zo(motorCurveCoefA * pow(val, motorCurveCoefB));
+}
+
+static float estimate_base_voltage(float current_voltage, float current_avg_motor_val)
+{
+    return current_voltage + voltageDropCurveCoefA * pow(current_avg_motor_val, voltageDropCurveCoefB);
+}
+
+static float compensate_power_loss(float base_voltage, float desired_motor_val)
+{
+    float relative_voltage_loss = glm_clamp(12.6f - base_voltage, 0.f, 2.1f) / 2.1;
+    float power_loss = powerLossCurveCoefA * pow(relative_voltage_loss, powerLossCurveCoefB);
+    desired_motor_val = desired_motor_val < 0.f ? 0.f : desired_motor_val;
+    return desired_motor_val / (1.f - power_loss);
+
 }
 
 static void control_loop_task(void * params)
@@ -485,6 +545,8 @@ static void control_loop_task(void * params)
     float prevLoopFreq = 0.f;
     vec3 filteredAccData; // gravity direction
     float heightAccelerationSnapshot = 0.f;
+    float averageMotorVal = 0.f;
+    float currentBaseVoltage = 0.f;
 
     while(1)
     {
@@ -660,10 +722,12 @@ static void control_loop_task(void * params)
             heightAccelerationSnapshot = heightMotorAdjust;
         }
 
-        float frontLeft = unlinearize_to_motor(baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust);
-		float frontRight = unlinearize_to_motor(baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust);
-		float backLeft = unlinearize_to_motor(baseAcceleration + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust);
-		float backRight = unlinearize_to_motor(baseAcceleration + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust);
+        currentBaseVoltage = estimate_base_voltage(get_current_voltage(), averageMotorVal) * 0.0005 + 0.9995 * currentBaseVoltage;
+
+        float frontLeft = map_to_motor(compensate_power_loss(currentBaseVoltage, baseAcceleration + heightMotorAdjust + pitchMotorAdjust - rollMotorAdjust + yawMotorAdjust));
+		float frontRight = map_to_motor(compensate_power_loss(currentBaseVoltage,baseAcceleration + heightMotorAdjust + pitchMotorAdjust + rollMotorAdjust - yawMotorAdjust));
+		float backLeft = map_to_motor(compensate_power_loss(currentBaseVoltage,baseAcceleration + heightMotorAdjust - pitchMotorAdjust - rollMotorAdjust - yawMotorAdjust));
+		float backRight = map_to_motor(compensate_power_loss(currentBaseVoltage,baseAcceleration + heightMotorAdjust - pitchMotorAdjust + rollMotorAdjust + yawMotorAdjust));
 
 		if (desiredHeight < 0.05f || turnOffTrigger)
 		{
@@ -678,6 +742,7 @@ static void control_loop_task(void * params)
 
 		}
         set_motor_vals(frontLeft, frontRight, backLeft, backRight);
+        averageMotorVal = (frontLeft + frontRight + backLeft + backRight) / 4.f;
         
         float currentLoopFreq = (1 / seconds_elapsed) * 0.5f + prevLoopFreq * 0.5;
         prevLoopFreq = currentLoopFreq;
@@ -707,6 +772,8 @@ static void control_loop_task(void * params)
         rollErrIntOut = rollErrInt;
         yawErrIntOut = yawErrInt;
         heightErrIntOut = heightErrInt;
+
+        currentBaseVoltageOut = currentBaseVoltage;
     }
 }
 

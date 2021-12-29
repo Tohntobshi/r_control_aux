@@ -43,6 +43,12 @@ void set_roll_i_limit(float val);
 void set_yaw_i_limit(float val);
 void set_height_i_limit(float val);
 void set_acc_calibration(vec3 value);
+void set_motor_curve_a(float val);
+void set_motor_curve_b(float val);
+void set_voltage_drop_curve_a(float val);
+void set_voltage_drop_curve_b(float val);
+void set_power_loss_curve_a(float val);
+void set_power_loss_curve_b(float val);
 
 
 float get_current_pitch_err();
@@ -72,3 +78,5 @@ void get_gyro_calibration(vec3 dest);
 void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest);
 
 uint8_t get_landing_flag();
+
+float get_base_voltage();

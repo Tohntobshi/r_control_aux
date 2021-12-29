@@ -5,7 +5,6 @@
 #include "freertos/task.h"
 #include "communication.h"
 #include "control_loop/include/control_loop.h"
-#include "battery_check/include/battery_check.h"
 #include "lwip/def.h"
 
 #define GPIO_MOSI 13
@@ -82,7 +81,7 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_short_to_net(bl, buf_to_write_val + 4);
         set_short_to_net(br, buf_to_write_val + 6);
         set_float_to_net(freq, buf_to_write_val + 8);
-        set_float_to_net(get_current_voltage(), buf_to_write_val + 12);
+        set_float_to_net(get_base_voltage(), buf_to_write_val + 12);
         return 16;
     }
     if (reg == GET_GYRO_CALIBRATION)
@@ -119,7 +118,7 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
     if (reg == GET_PRIMARY_INFO)
     {
         buf_to_write_val[0] = get_landing_flag();
-        set_float_to_net(get_current_voltage(), buf_to_write_val + 1);
+        set_float_to_net(get_base_voltage(), buf_to_write_val + 1);
         return 5;
     }
     return 0;
@@ -501,6 +500,60 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("set height i limit %f\n", res);
         #endif
         set_height_i_limit(res);
+        return;
+    }
+    if (reg == SET_MOTOR_CURVE_A && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set motor curve a %f\n", res);
+        #endif
+        set_motor_curve_a(res);
+        return;
+    }
+    if (reg == SET_MOTOR_CURVE_B && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set motor curve b %f\n", res);
+        #endif
+        set_motor_curve_b(res);
+        return;
+    }
+    if (reg == SET_VOLTAGE_DROP_CURVE_A && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set voltage drop curve a %f\n", res);
+        #endif
+        set_voltage_drop_curve_a(res);
+        return;
+    }
+    if (reg == SET_VOLTAGE_DROP_CURVE_B && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set voltage drop curve b %f\n", res);
+        #endif
+        set_voltage_drop_curve_b(res);
+        return;
+    }
+    if (reg == SET_POWER_LOSS_CURVE_A && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set power loss curve a %f\n", res);
+        #endif
+        set_power_loss_curve_a(res);
+        return;
+    }
+    if (reg == SET_POWER_LOSS_CURVE_B && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set power loss curve b %f\n", res);
+        #endif
+        set_power_loss_curve_b(res);
         return;
     }
     #ifdef PRINT_ALL_SET_COMMANDS
