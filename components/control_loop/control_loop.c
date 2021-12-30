@@ -46,6 +46,7 @@ static float yawIntLimitIn = 0.f;
 static float heightPropCoefIn = 0.f;
 static float heightDerCoefIn = 0.f;
 static float heightIntCoefIn = 0.f;
+static float heightNegativeIntCoefIn = 0.f;
 static float heightIntLimitIn = 0.f;
 
 // filtering
@@ -192,6 +193,11 @@ void set_height_der_coef(float val)
 void set_height_int_coef(float val)
 {
     heightIntCoefIn = val;
+}
+
+void set_height_negative_int_coef(float val)
+{
+    heightNegativeIntCoefIn = val;
 }
 
 void set_acc_trust(float val)
@@ -582,6 +588,7 @@ static void control_loop_task(void * params)
 		float heightPropCoef = heightPropCoefIn;
 		float heightDerCoef = heightDerCoefIn;
 		float heightIntCoef = heightIntCoefIn;
+        float heightNegativeIntCoef = heightNegativeIntCoefIn;
         float heightIntLimit = heightIntLimitIn;
 		float baseAcceleration = baseAccelerationIn;
         uint8_t useRelativeAcceleration = useRelativeAccelerationIn;
@@ -674,20 +681,11 @@ static void control_loop_task(void * params)
 		yawErrInt += currentYawError * seconds_elapsed * yawIntCoef / 1000.f;
         yawErrInt = glm_clamp(yawErrInt, -yawIntLimit, yawIntLimit);
 
-        float currentHeight = 0.f;
-		float currentHeightError = 0.f;
-		if (fabs(currentPitch) > 30.f || fabs(currentRoll) > 30.f)
-		{
-			currentHeight = prevHeight;
-			currentHeightError = desiredHeight - currentHeight;
-		}
-		else
-		{
-			currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
-			currentHeightError = desiredHeight - currentHeight;
-			heightErrInt += currentHeightError * seconds_elapsed * heightIntCoef;
-            heightErrInt = glm_clamp(heightErrInt, -heightIntLimit, heightIntLimit);
-		}
+		float currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
+		float currentHeightError = desiredHeight - currentHeight;
+        heightErrInt += currentHeightError * seconds_elapsed * (currentHeightError > 0.f ? heightIntCoef : heightNegativeIntCoef);
+        heightErrInt = glm_clamp(heightErrInt, -heightIntLimit, heightIntLimit);
+		
 		float heightDer = ((currentHeight - prevHeight) / seconds_elapsed) * (1.f - usHeightDerFiltering) + prevHeightDer * usHeightDerFiltering;
         float heightErrorChangeRate = -heightDer;
 		prevHeight = currentHeight;

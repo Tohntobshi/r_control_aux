@@ -556,6 +556,15 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_power_loss_curve_b(res);
         return;
     }
+    if (reg == SET_HEIGHT_NEGATIVE_INT_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set height negative int coef %f\n", res);
+        #endif
+        set_height_negative_int_coef(res);
+        return;
+    }
     #ifdef PRINT_ALL_SET_COMMANDS
     printf("unknown set command\n");
     #endif

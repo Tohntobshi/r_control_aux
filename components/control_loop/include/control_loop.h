@@ -18,6 +18,7 @@ void set_yaw_int_coef(float val);
 void set_height_prop_coef(float val);
 void set_height_der_coef(float val);
 void set_height_int_coef(float val);
+void set_height_negative_int_coef(float val);
 void set_acc_trust(float val);
 void set_mag_trust(float val);
 void schedule_set_acc_filtering_mode(uint8_t val);
