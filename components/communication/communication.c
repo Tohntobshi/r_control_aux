@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "communication.h"
 #include "control_loop/include/control_loop.h"
+#include "gps/include/gps.h"
 #include "lwip/def.h"
 
 #define GPIO_MOSI 13
@@ -119,7 +120,19 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
     {
         buf_to_write_val[0] = get_landing_flag();
         set_float_to_net(get_base_voltage(), buf_to_write_val + 1);
-        return 5;
+        buf_to_write_val[5] = get_lat_lon_actuality();
+        set_short_to_net(get_num_satelites(), buf_to_write_val + 6);
+        return 8;
+    }
+    if (reg == GET_POSITION_INFO)
+    {
+        set_float_to_net(get_x_position_err(), buf_to_write_val);
+        set_float_to_net(get_y_position_err(), buf_to_write_val + 4);
+        set_float_to_net(get_x_position_err_der(), buf_to_write_val + 8);
+        set_float_to_net(get_y_position_err_der(), buf_to_write_val + 12);
+        set_float_to_net(get_x_position_err_int(), buf_to_write_val + 16);
+        set_float_to_net(get_y_position_err_int(), buf_to_write_val + 20);
+        return 24;
     }
     return 0;
 }
@@ -563,6 +576,113 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("set height negative int coef %f\n", res);
         #endif
         set_height_negative_int_coef(res);
+        return;
+    }
+    if (reg == SET_POSITION_PROP_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position prop coef %f\n", res);
+        #endif
+        set_position_prop_coef(res);
+        return;
+    }
+    if (reg == SET_POSITION_DER_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position der coef %f\n", res);
+        #endif
+        set_position_der_coef(res);
+        return;
+    }
+    if (reg == SET_POSITION_INT_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position int coef %f\n", res);
+        #endif
+        set_position_int_coef(res);
+        return;
+    }
+    if (reg == SET_POSITION_I_LIMIT && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position i limit %f\n", res);
+        #endif
+        set_position_i_limit(res);
+        return;
+    }
+    if (reg == SET_BAR_HEIGHT_PROP_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set bar height prop coef %f\n", res);
+        #endif
+        set_bar_height_prop_coef(res);
+        return;
+    }
+    if (reg == SET_BAR_HEIGHT_DER_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set bar height der coef %f\n", res);
+        #endif
+        set_bar_height_der_coef(res);
+        return;
+    }
+    if (reg == SET_BAR_HEIGHT_INT_COEF && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set bar height int coef %f\n", res);
+        #endif
+        set_bar_height_int_coef(res);
+        return;
+    }
+    if (reg == SET_BAR_HEIGHT_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set bar height filtering %f\n", res);
+        #endif
+        set_bar_height_filtering(res);
+        return;
+    }
+    if (reg == SET_BAR_HEIGHT_DER_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set bar height der filtering %f\n", res);
+        #endif
+        set_bar_height_der_filtering(res);
+        return;
+    }
+    if (reg == SET_POSITION_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position filtering %f\n", res);
+        #endif
+        set_position_filtering(res);
+        return;
+    }
+    if (reg == SET_POSITION_DER_FILTERING && size == 4)
+    {
+        float res = get_float_from_net(buf_with_val);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set position der filtering %f\n", res);
+        #endif
+        set_position_der_filtering(res);
+        return;
+    }
+    if (reg == SET_HOLD_MODE && size == 1)
+    {
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set hold mode %d\n", buf_with_val[0]);
+        #endif
+        set_hold_mode(buf_with_val[0]);
         return;
     }
     #ifdef PRINT_ALL_SET_COMMANDS

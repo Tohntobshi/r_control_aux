@@ -50,6 +50,18 @@ void set_voltage_drop_curve_a(float val);
 void set_voltage_drop_curve_b(float val);
 void set_power_loss_curve_a(float val);
 void set_power_loss_curve_b(float val);
+void set_position_prop_coef(float val);
+void set_position_der_coef(float val);
+void set_position_int_coef(float val);
+void set_position_i_limit(float val);
+void set_bar_height_prop_coef(float val);
+void set_bar_height_der_coef(float val);
+void set_bar_height_int_coef(float val);
+void set_bar_height_filtering(float val);
+void set_bar_height_der_filtering(float val);
+void set_position_filtering(float val);
+void set_position_der_filtering(float val);
+void set_hold_mode(uint8_t val);
 
 
 float get_current_pitch_err();
@@ -81,3 +93,16 @@ void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest);
 uint8_t get_landing_flag();
 
 float get_base_voltage();
+
+float get_x_position_err();
+float get_y_position_err();
+float get_x_position_err_der();
+float get_y_position_err_der();
+float get_x_position_err_int();
+float get_y_position_err_int();
+
+enum hold_mode {
+    HOLD_OFF,
+    HOLD_DIRECTION,
+    HOLD_POSITION
+};

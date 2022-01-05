@@ -8,6 +8,7 @@
 #include "motor_control.h"
 #include "us_sensor.h"
 #include "battery_check/include/battery_check.h"
+#include "gps/include/gps.h"
 
 #define MIN_VAL 1000
 #define MAX_VAL 2000
@@ -47,7 +48,18 @@ static float heightPropCoefIn = 0.f;
 static float heightDerCoefIn = 0.f;
 static float heightIntCoefIn = 0.f;
 static float heightNegativeIntCoefIn = 0.f;
-static float heightIntLimitIn = 0.f;
+static float heightIntLimitIn = 0.f; // common for both sensors
+
+// PID coefficients for bar height
+static float barHeightPropCoefIn = 0.f;  // TODO
+static float barHeightDerCoefIn = 0.f;  // TODO
+static float barHeightIntCoefIn = 0.f;  // TODO
+
+// PID coefficients for position
+static float positionPropCoefIn = 0.f;
+static float positionDerCoefIn = 0.f;
+static float positionIntCoefIn = 0.f;
+static float positionIntLimitIn = 0.f;
 
 // filtering
 static float accTrustIn = 0.1f;
@@ -57,6 +69,10 @@ static uint8_t gyroLPFModeIn = 3;
 static float accFilteringIn = 0.95f;
 static float usHeightFilteringIn = 0.95f;
 static float usHeightDerFilteringIn = 0.95f;
+static float barHeightFilteringIn = 0.0f;  // TODO
+static float barHeightDerFilteringIn = 0.0f;  // TODO
+static float positionFilteringIn = 0.f;
+static float positionDerFilteringIn = 0.f;
 
 // safety
 static uint8_t turnOffTrigger = 0;
@@ -80,6 +96,10 @@ static float voltageDropCurveCoefA = 2.f;
 static float voltageDropCurveCoefB = 3.f;
 static float powerLossCurveCoefA = 0.53f; // power loss from base 12.6V to base 10.5V
 static float powerLossCurveCoefB = 1.f;
+
+// mode of operation
+
+static uint8_t holdModeIn = HOLD_POSITION;  // TODO
 
 // -------- out values --------
 
@@ -108,6 +128,14 @@ static float yawErrIntOut = 0.f;
 static float heightErrIntOut = 0.f;
 
 float currentBaseVoltageOut = 0.f;
+
+float positionXErrOut = 0.f;
+float positionYErrOut = 0.f;
+float positionXErrDerOut = 0.f;
+float positionYErrDerOut = 0.f;
+float positionXErrIntOut = 0.f;
+float positionYErrIntOut = 0.f;
+
 
 // -------- in out values --------
 
@@ -340,6 +368,66 @@ void set_power_loss_curve_b(float val)
     powerLossCurveCoefB = val;
 }
 
+void set_position_prop_coef(float val)
+{
+    positionPropCoefIn = val;
+}
+
+void set_position_der_coef(float val)
+{
+    positionDerCoefIn = val;
+}
+
+void set_position_int_coef(float val)
+{
+    positionIntCoefIn = val;
+}
+
+void set_position_i_limit(float val)
+{
+    positionIntLimitIn = val;
+}
+
+void set_bar_height_prop_coef(float val)
+{
+    barHeightPropCoefIn = val;
+}
+
+void set_bar_height_der_coef(float val)
+{
+    barHeightDerCoefIn = val;
+}
+
+void set_bar_height_int_coef(float val)
+{
+    barHeightIntCoefIn = val;
+}
+
+void set_bar_height_filtering(float val)
+{
+    barHeightFilteringIn = val;
+}
+
+void set_bar_height_der_filtering(float val)
+{
+    barHeightDerFilteringIn = val;
+}
+
+void set_position_filtering(float val)
+{
+    positionFilteringIn = val;
+}
+
+void set_position_der_filtering(float val)
+{
+    positionDerFilteringIn = val;
+}
+
+void set_hold_mode(uint8_t val)
+{
+    holdModeIn = val;
+}
+
 float get_current_pitch_err()
 {
     return currentPitchErrorOut;
@@ -433,6 +521,36 @@ uint8_t get_landing_flag()
 float get_base_voltage()
 {
     return currentBaseVoltageOut;
+}
+
+float get_x_position_err()
+{
+    return positionXErrOut;
+}
+
+float get_y_position_err()
+{
+    return positionYErrOut;
+}
+
+float get_x_position_err_der()
+{
+    return positionXErrDerOut;
+}
+
+float get_y_position_err_der()
+{
+    return positionYErrDerOut;
+}
+
+float get_x_position_err_int()
+{
+    return positionXErrIntOut;
+}
+
+float get_y_position_err_int()
+{
+    return positionYErrIntOut;
 }
 
 static uint8_t check_scheduled_actions()
@@ -553,6 +671,16 @@ static void control_loop_task(void * params)
     float heightAccelerationSnapshot = 0.f;
     float averageMotorVal = 0.f;
     float currentBaseVoltage = 0.f;
+    float latSnapshot = 0.f;
+    float lonSnapshot = 0.f;
+    uint8_t latLonSnapshotValid = 0;
+    float filteredLatitude = 0.f;
+    float filteredLongitude = 0.f;
+    float filteredLatitudeDer = 0.f;
+    float filteredLongitudeDer = 0.f;
+    float secondsElapsedBetweenPositionFiltering = 0.f;
+    float positionXErrInt = 0.f;
+    float positionYErrInt = 0.f;
 
     while(1)
     {
@@ -595,6 +723,12 @@ static void control_loop_task(void * params)
         float desiredRelativeAcceleration = desiredRelativeAccelerationIn;
         float usHeightFiltering = usHeightFilteringIn;
         float usHeightDerFiltering = usHeightDerFilteringIn;
+        float positionFiltering = positionFilteringIn;
+        float positionDerFiltering = positionDerFilteringIn;
+        float positionIntLimit = positionIntLimitIn;
+        float positionPropCoef = positionPropCoefIn;
+        float positionDerCoef = positionDerCoefIn;
+        float positionIntCoef = positionIntCoefIn;
 
         // get all sensor and time data
         vec3 acc_data_raw;
@@ -603,22 +737,77 @@ static void control_loop_task(void * params)
         get_gyro_calibrated_data(gyro_data);
         vec3 mag_data;
         get_mag_normalized_data(mag_data);
-        // float bar_data = get_bar_data();
+        float bar_data = get_bar_data();
         float usonic_distance = get_current_us_distance();
+        uint8_t is_gps_data_valid = get_lat_lon_actuality();
+        float latitude = get_latitude();
+        float longitude = get_longitude();
+        int num_satelites = get_num_satelites();
         uint64_t u_seconds_elapsed;
         timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &u_seconds_elapsed);
         timer_set_counter_value(TIMER_GROUP_0, TIMER_1, 0);
 
 
         // computing values
+        float seconds_elapsed = u_seconds_elapsed / 1000000.f;
+
+
+        float meters_per_lat_degree = 111111.f; // y direction
+        float meters_per_lon_degree = 111111.f * cos(glm_rad(filteredLatitude)); // x direction
+        secondsElapsedBetweenPositionFiltering += seconds_elapsed;
+        if (is_gps_data_valid)
+        {
+            float newfilteredLatitude = latitude * (1.f - positionFiltering) + filteredLatitude * positionFiltering;
+            float newfilteredLongitude = longitude * (1.f - positionFiltering) + filteredLongitude * positionFiltering;
+            filteredLatitudeDer = ((newfilteredLatitude - filteredLatitude) / secondsElapsedBetweenPositionFiltering) * (1.f - positionDerFiltering) + filteredLatitudeDer * positionDerFiltering;
+            float newFilteredLogitudeTmp = newfilteredLongitude;
+            pepare_angles_for_combination(&newFilteredLogitudeTmp, &filteredLongitude);
+            filteredLongitudeDer = ((newFilteredLogitudeTmp - filteredLongitude) / secondsElapsedBetweenPositionFiltering) * (1.f - positionDerFiltering) + filteredLongitudeDer * positionDerFiltering;
+            filteredLatitude = newfilteredLatitude;
+            filteredLongitude = newfilteredLongitude;
+            secondsElapsedBetweenPositionFiltering = 0.f;
+        }
+        float positionXError = 0.f;
+        float positionYError = 0.f;
+        float positionXErrorDer = 0.f;
+        float positionYErrorDer = 0.f;
+        if (desiredHeight < 0.05f || (desiredMove[0] != 0.f || desiredMove[1] != 0.f) || (!latLonSnapshotValid && is_gps_data_valid))
+        {   // if we are on the ground, moving, or snapshot is invalid, just update position coordinates that we gonna hold next time
+            latSnapshot = filteredLatitude;
+            lonSnapshot = filteredLongitude;
+            latLonSnapshotValid = is_gps_data_valid;
+            positionXErrInt = 0.f;
+            positionYErrInt = 0.f;
+        }
+        else if (latLonSnapshotValid && is_gps_data_valid)
+        {   // no move command, both data valid, desired move should be used to hold last position snapshot
+            float lonSnapshotTmp = lonSnapshot;
+            float filteredLongitudeTmp = filteredLongitude;
+            pepare_angles_for_combination(&lonSnapshotTmp, &filteredLongitudeTmp);
+            positionXError = (lonSnapshotTmp - filteredLongitudeTmp) * meters_per_lon_degree;
+            positionYError = (latSnapshot - filteredLatitude) * meters_per_lat_degree;
+            positionXErrorDer = -filteredLongitudeDer * meters_per_lon_degree;
+            positionYErrorDer = -filteredLatitudeDer * meters_per_lat_degree;
+            positionXErrInt += positionXError * seconds_elapsed * positionIntCoef;
+            positionYErrInt += positionYError * seconds_elapsed * positionIntCoef;
+            positionXErrInt = glm_clamp(positionXErrInt, -positionIntLimit, positionIntLimit);
+            positionYErrInt = glm_clamp(positionYErrInt, -positionIntLimit, positionIntLimit);
+            desiredMove[0] = glm_clamp(positionXError * positionPropCoef + positionXErrorDer * positionDerCoef + positionXErrInt, -1.f, 1.f);
+            desiredMove[1] = glm_clamp(positionYError * positionPropCoef + positionYErrorDer * positionDerCoef + positionYErrInt, -1.f, 1.f);
+        }
+        else
+        {
+            // nothing to do
+        }
+
+
         filteredAccData[0] = filteredAccData[0] * accFiltering + acc_data_raw[0] * (1.f - accFiltering);
         filteredAccData[1] = filteredAccData[1] * accFiltering + acc_data_raw[1] * (1.f - accFiltering);
         filteredAccData[2] = filteredAccData[2] * accFiltering + acc_data_raw[2] * (1.f - accFiltering);
         vec3 acceleration;
         glm_vec3_sub(acc_data_raw, filteredAccData, acceleration);
 
-        float seconds_elapsed = u_seconds_elapsed / 1000000.f;
-
+        
         float accPitch = glm_deg(atan2(filteredAccData[0], filteredAccData[2]));
         vec2 tmp1 = { filteredAccData[2], filteredAccData[0] };
 		float accRoll = -glm_deg(atan2(filteredAccData[1], glm_vec2_norm(tmp1)));
@@ -662,8 +851,8 @@ static void control_loop_task(void * params)
         vec2 localMove;
         glm_vec2_rotate(desiredMove, -glm_rad(currentYaw), localMove);
 
-        float desiredPitch = -localMove[1] * 15.f;
-        float desiredRoll = -localMove[0] * 15.f;
+        float desiredPitch = -localMove[1] * 5.f;
+        float desiredRoll = -localMove[0] * 5.f;
 
         float currentPitchError = desiredPitch - currentPitch + pitchAdjust;
 		float currentRollError = desiredRoll - currentRoll + rollAdjust;
@@ -705,7 +894,7 @@ static void control_loop_task(void * params)
 		float heightMotorAdjust;
         if (useRelativeAcceleration)
         {
-            heightMotorAdjust = heightAccelerationSnapshot + (1.f - heightAccelerationSnapshot - baseAcceleration) * desiredRelativeAcceleration;
+            heightMotorAdjust = heightAccelerationSnapshot + (desiredRelativeAcceleration > 0.f ? 0.3f * desiredRelativeAcceleration : 0.1f * desiredRelativeAcceleration);
             if (currentHeight < 0.1f && desiredRelativeAcceleration < -0.9f)
             {
                 useRelativeAccelerationIn = 0;
@@ -772,6 +961,13 @@ static void control_loop_task(void * params)
         heightErrIntOut = heightErrInt;
 
         currentBaseVoltageOut = currentBaseVoltage;
+
+        positionXErrOut = positionXError;
+        positionYErrOut = positionYError;
+        positionXErrDerOut = positionXErrorDer;
+        positionYErrDerOut = positionYErrorDer;
+        positionXErrIntOut = positionXErrInt;
+        positionYErrIntOut = positionYErrInt;
     }
 }
 
