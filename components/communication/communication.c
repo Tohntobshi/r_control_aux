@@ -6,7 +6,7 @@
 #include "communication.h"
 #include "control_loop/include/control_loop.h"
 #include "gps/include/gps.h"
-#include "lwip/def.h"
+#include "utils.h"
 
 #define GPIO_MOSI 13
 #define GPIO_MISO 12
@@ -17,23 +17,6 @@
 // #define PRINT_ALL_SET_COMMANDS 1
 
 static TaskHandle_t communicationTaskHandle;
-
-float get_float_from_net(uint8_t * data) {
-    uint32_t tmp = ntohl(*(uint32_t *)(data));
-    return *(float *)(&tmp);
-}
-
-int get_int_from_net(uint8_t * data) {
-    return ntohl(*(uint32_t*)(data));
-}
-
-void set_float_to_net(float val, uint8_t * dest) {
-    *(uint32_t *)dest = htonl(*(uint32_t *)(&val));
-}
-
-void set_short_to_net(uint16_t val, uint8_t * dest) {
-    *(uint16_t *)dest = htons(val);
-}
 
 static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 31 bytes max
 {

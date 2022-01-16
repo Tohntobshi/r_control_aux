@@ -36,7 +36,8 @@
     "istream": "c",
     "tuple": "c",
     "utility": "c",
-    "storage.h": "c"
+    "storage.h": "c",
+    "utils.h": "c"
   },
   "cmake.configureOnOpen": false,
   "idf.adapterTargetName": "esp32"

@@ -5,7 +5,9 @@
 #include "freertos/semphr.h"
 
 #include "i2c_sensors.h"
+#include "VL53L1X_api.h"
 #include "bmp280.h"
+#include "utils.h"
 
 
 #define SDA_PIN 32
@@ -13,6 +15,7 @@
 
 #define MPU9250_ADDRESS 0x68
 #define AK8963_ADDRESS 0x0C
+#define VL53L1X_ADDRESS 0x29
 
 #define ACCEL_XOUT_H 0x3B // Accel data first register
 #define GYRO_XOUT_H 0x43  // Gyro data first register
@@ -53,12 +56,47 @@ static int8_t write_bytes(uint8_t address, uint8_t reg, uint8_t * data, uint16_t
     return 0;
 }
 
+static int8_t write_bytes_16bit_reg(uint8_t address, uint16_t reg, uint8_t * data, uint16_t size)
+{
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK);
+    set_short_to_net(reg, (uint8_t *)&reg);
+    i2c_master_write(cmd, (uint8_t *)&reg, 2, I2C_MASTER_ACK);
+    i2c_master_write(cmd, data, size, I2C_MASTER_ACK);
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd);
+    return 0;
+}
+
 static int8_t read_bytes(uint8_t address, uint8_t reg, uint8_t * dest, uint16_t size)
 {
     i2c_cmd_handle_t wcmd = i2c_cmd_link_create();
     i2c_master_start(wcmd);
     i2c_master_write_byte(wcmd, (address << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK);
     i2c_master_write_byte(wcmd, reg, I2C_MASTER_ACK);
+    i2c_master_stop(wcmd);
+    i2c_master_cmd_begin(I2C_NUM_0, wcmd, 1000 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(wcmd);
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_READ, I2C_MASTER_ACK);
+    i2c_master_read(cmd, dest, size, I2C_MASTER_LAST_NACK);
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd);
+    return 0;
+}
+
+static int8_t read_bytes_16bit_reg(uint8_t address, uint16_t reg, uint8_t * dest, uint16_t size)
+{
+    i2c_cmd_handle_t wcmd = i2c_cmd_link_create();
+    i2c_master_start(wcmd);
+    i2c_master_write_byte(wcmd, (address << 1) | I2C_MASTER_WRITE, I2C_MASTER_ACK);
+    set_short_to_net(reg, (uint8_t *)&reg);
+    i2c_master_write(wcmd, (uint8_t *)&reg, 2, I2C_MASTER_ACK);
     i2c_master_stop(wcmd);
     i2c_master_cmd_begin(I2C_NUM_0, wcmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(wcmd);
@@ -269,6 +307,44 @@ void set_gyro_filtering_mode(uint8_t mode)
     write_bytes(MPU9250_ADDRESS, CONFIG, &mode, 1);
 }
 
+static int8_t VL53L1_WrByte(uint16_t index, uint8_t data) {
+	return write_bytes_16bit_reg(VL53L1X_ADDRESS, index, &data, 1);
+}
+
+static int8_t VL53L1_WrWord(uint16_t index, uint16_t data) {
+    uint8_t data_to_send[2];
+    set_short_to_net(data, data_to_send);
+	return write_bytes_16bit_reg(VL53L1X_ADDRESS, index, data_to_send, 2);
+}
+
+static int8_t VL53L1_WrDWord(uint16_t index, uint32_t data) {
+    uint8_t data_to_send[4];
+    set_int_to_net(data, data_to_send);
+	return write_bytes_16bit_reg(VL53L1X_ADDRESS, index, data_to_send, 4);
+}
+
+static int8_t VL53L1_RdByte(uint16_t index, uint8_t *data) {
+	return read_bytes_16bit_reg(VL53L1X_ADDRESS, index, data, 1);
+}
+
+static int8_t VL53L1_RdWord(uint16_t index, uint16_t *data) {
+    uint8_t data_to_get[2];
+	read_bytes_16bit_reg(VL53L1X_ADDRESS, index, data_to_get, 2);
+    *data = get_short_from_net(data_to_get);
+    return 0;
+}
+
+static int8_t VL53L1_ReadMulti(uint16_t index, uint8_t *pdata, uint32_t count){
+	return read_bytes_16bit_reg(VL53L1X_ADDRESS, index, pdata, count);
+}
+
+float get_bottom_distance()
+{
+    uint16_t distance;
+    VL53L1X_GetDistance(&distance);
+    return distance / 1000.f;
+}
+
 void i2c_sensors_setup()
 {
     i2c_config_t conf = {
@@ -322,6 +398,25 @@ void i2c_sensors_setup()
 	bmpConf.odr = BMP280_ODR_62_5_MS;
 	bmp280_set_config(&bmpConf, &bmp);
 	bmp280_set_power_mode(BMP280_NORMAL_MODE, &bmp);
+    
+    VL53L1X_ReadWrite_Functions func;
+    func.rdByte = VL53L1_RdByte;
+    func.rdWord = VL53L1_RdWord;
+    func.rdMulti = VL53L1_ReadMulti;
+    func.wrByte = VL53L1_WrByte;
+    func.wrWord = VL53L1_WrWord;
+    func.wrDWord = VL53L1_WrDWord;
+    VL53L1X_SetReadWriteFunctions(func);
+    
+    uint8_t sensor_state = 0;
+    while(sensor_state==0){
+		VL53L1X_BootState(&sensor_state);
+	    vTaskDelay(2 / portTICK_PERIOD_MS);
+    }
+    VL53L1X_SensorInit();
+    VL53L1X_SetInterMeasurementInMs(33);
+    VL53L1X_SetTimingBudgetInMs(33);
+    VL53L1X_StartRanging();
 
     accCalibMtx = xSemaphoreCreateMutex();
     gyroCalibMtx = xSemaphoreCreateMutex();

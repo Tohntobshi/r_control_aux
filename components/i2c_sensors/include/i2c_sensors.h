@@ -31,3 +31,5 @@ void get_mag_calibration(vec3 mid_vals_dest, vec3 range_dest);
 void calibrate_acc();
 void get_acc_calibration(vec3 dest);
 
+float get_bottom_distance();
+

@@ -97,7 +97,6 @@ static void gps_task(void * params)
             printf("gps some garbage \n");
             continue;
         }
-        printf((char *)data);
         int parsed_count = 7;
         uint8_t time_str[16] = { 0 };
         uint8_t lat_str[16] = { 0 };

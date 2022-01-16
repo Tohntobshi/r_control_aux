@@ -6,7 +6,7 @@
 #include "control_loop.h"
 #include "i2c_sensors.h"
 #include "motor_control.h"
-#include "us_sensor.h"
+// #include "us_sensor.h"
 #include "battery_check/include/battery_check.h"
 #include "gps/include/gps.h"
 
@@ -646,7 +646,7 @@ static void control_loop_task(void * params)
 {
     motor_control_setup();
     i2c_sensors_setup();
-    ultrasonic_setup();
+    // ultrasonic_setup();
     timer_config_t t_conf = {
         .divider = 80,
         .counter_dir = TIMER_COUNT_UP,
@@ -681,7 +681,6 @@ static void control_loop_task(void * params)
     float secondsElapsedBetweenPositionFiltering = 0.f;
     float positionXErrInt = 0.f;
     float positionYErrInt = 0.f;
-
     while(1)
     {
         // check scheduled actions
@@ -738,7 +737,7 @@ static void control_loop_task(void * params)
         vec3 mag_data;
         get_mag_normalized_data(mag_data);
         float bar_data = get_bar_data();
-        float usonic_distance = get_current_us_distance();
+        float bottom_distance = get_bottom_distance();
         uint8_t is_gps_data_valid = get_lat_lon_actuality();
         float latitude = get_latitude();
         float longitude = get_longitude();
@@ -870,7 +869,7 @@ static void control_loop_task(void * params)
 		yawErrInt += currentYawError * seconds_elapsed * yawIntCoef / 1000.f;
         yawErrInt = glm_clamp(yawErrInt, -yawIntLimit, yawIntLimit);
 
-		float currentHeight = usonic_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
+		float currentHeight = bottom_distance * sqrt(1.f / (pow(tan(glm_rad(currentRoll)), 2) + pow(tan(glm_rad(currentPitch)), 2) + 1)) * (1.f - usHeightFiltering) + prevHeight * usHeightFiltering;
 		float currentHeightError = desiredHeight - currentHeight;
         heightErrInt += currentHeightError * seconds_elapsed * (currentHeightError > 0.f ? heightIntCoef : heightNegativeIntCoef);
         heightErrInt = glm_clamp(heightErrInt, -heightIntLimit, heightIntLimit);
