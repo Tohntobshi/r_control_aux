@@ -107,16 +107,22 @@ static uint8_t execute_read_command(uint8_t reg, uint8_t * buf_to_write_val) // 
         set_short_to_net(get_num_satelites(), buf_to_write_val + 6);
         return 8;
     }
-    if (reg == GET_POSITION_INFO)
+    if (reg == GET_HEIGHT_AND_DIRECTION)
     {
-        set_float_to_net(get_x_position_err(), buf_to_write_val);
-        set_float_to_net(get_y_position_err(), buf_to_write_val + 4);
-        set_float_to_net(get_x_position_err_der(), buf_to_write_val + 8);
-        set_float_to_net(get_y_position_err_der(), buf_to_write_val + 12);
-        set_float_to_net(get_x_position_err_int(), buf_to_write_val + 16);
-        set_float_to_net(get_y_position_err_int(), buf_to_write_val + 20);
-        return 24;
+        set_float_to_net(get_height(), buf_to_write_val);
+        set_float_to_net(get_direction(), buf_to_write_val + 4);
+        return 8;
     }
+    // if (reg == GET_POSITION_INFO)
+    // {
+    //     set_float_to_net(get_x_position_err(), buf_to_write_val);
+    //     set_float_to_net(get_y_position_err(), buf_to_write_val + 4);
+    //     set_float_to_net(get_x_position_err_der(), buf_to_write_val + 8);
+    //     set_float_to_net(get_y_position_err_der(), buf_to_write_val + 12);
+    //     set_float_to_net(get_x_position_err_int(), buf_to_write_val + 16);
+    //     set_float_to_net(get_y_position_err_int(), buf_to_write_val + 20);
+    //     return 24;
+    // }
     return 0;
 }
 
@@ -130,6 +136,16 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         printf("set move x %f y %f\n", x, y);
         #endif
         set_move_vector(x, y);
+        return;
+    }
+    if (reg == MOVE_LOCAL && size == 8)
+    {
+        float x = get_float_from_net(buf_with_val);
+        float y = get_float_from_net(buf_with_val + 4);
+        #ifdef PRINT_ALL_SET_COMMANDS
+        printf("set move local x %f y %f\n", x, y);
+        #endif
+        set_move_local_vector(x, y);
         return;
     }
     if (reg == SET_DIRECTION && size == 4)
@@ -561,42 +577,42 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_height_negative_int_coef(res);
         return;
     }
-    if (reg == SET_POSITION_PROP_COEF && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position prop coef %f\n", res);
-        #endif
-        set_position_prop_coef(res);
-        return;
-    }
-    if (reg == SET_POSITION_DER_COEF && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position der coef %f\n", res);
-        #endif
-        set_position_der_coef(res);
-        return;
-    }
-    if (reg == SET_POSITION_INT_COEF && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position int coef %f\n", res);
-        #endif
-        set_position_int_coef(res);
-        return;
-    }
-    if (reg == SET_POSITION_I_LIMIT && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position i limit %f\n", res);
-        #endif
-        set_position_i_limit(res);
-        return;
-    }
+    // if (reg == SET_POSITION_PROP_COEF && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position prop coef %f\n", res);
+    //     #endif
+    //     set_position_prop_coef(res);
+    //     return;
+    // }
+    // if (reg == SET_POSITION_DER_COEF && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position der coef %f\n", res);
+    //     #endif
+    //     set_position_der_coef(res);
+    //     return;
+    // }
+    // if (reg == SET_POSITION_INT_COEF && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position int coef %f\n", res);
+    //     #endif
+    //     set_position_int_coef(res);
+    //     return;
+    // }
+    // if (reg == SET_POSITION_I_LIMIT && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position i limit %f\n", res);
+    //     #endif
+    //     set_position_i_limit(res);
+    //     return;
+    // }
     if (reg == SET_BAR_HEIGHT_PROP_COEF && size == 4)
     {
         float res = get_float_from_net(buf_with_val);
@@ -642,24 +658,24 @@ static void execute_write_command(uint8_t reg, uint8_t * buf_with_val, uint8_t s
         set_bar_height_der_filtering(res);
         return;
     }
-    if (reg == SET_POSITION_FILTERING && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position filtering %f\n", res);
-        #endif
-        set_position_filtering(res);
-        return;
-    }
-    if (reg == SET_POSITION_DER_FILTERING && size == 4)
-    {
-        float res = get_float_from_net(buf_with_val);
-        #ifdef PRINT_ALL_SET_COMMANDS
-        printf("set position der filtering %f\n", res);
-        #endif
-        set_position_der_filtering(res);
-        return;
-    }
+    // if (reg == SET_POSITION_FILTERING && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position filtering %f\n", res);
+    //     #endif
+    //     set_position_filtering(res);
+    //     return;
+    // }
+    // if (reg == SET_POSITION_DER_FILTERING && size == 4)
+    // {
+    //     float res = get_float_from_net(buf_with_val);
+    //     #ifdef PRINT_ALL_SET_COMMANDS
+    //     printf("set position der filtering %f\n", res);
+    //     #endif
+    //     set_position_der_filtering(res);
+    //     return;
+    // }
     if (reg == SET_HOLD_MODE && size == 1)
     {
         #ifdef PRINT_ALL_SET_COMMANDS

@@ -8,12 +8,12 @@
 #include "control_loop.h"
 #include "battery_check.h"
 #include "storage.h"
-#include "gps.h"
+// #include "gps.h"
 
 void app_main(void)
 {
     storage_init();
-    gps_setup();
+    // gps_setup();
     battery_check_setup();
     control_loop_setup();
     communication_setup();
